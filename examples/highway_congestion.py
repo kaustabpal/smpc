@@ -13,12 +13,16 @@ import copy
 np.set_printoptions(suppress=True)
 
 if __name__ == "__main__":
-    
     dtype = torch.float32
-    rec_video = False
-    exp_name = "Goal_Sampling_acc_model_free_balls"
-    exp_num =  exp_name
-    os.makedirs(exp_name+"/tmp/", exist_ok=True)
+    rec_video = True
+    
+    exp_name = "find_goal"
+    repo_path = os.path.abspath(os.path.join(os.path.dirname(__file__),".."))
+    results_path = repo_path+"/results"
+    exp_path = results_path+"/"+exp_name
+    plt_dir = exp_path+"/tmp/"
+    os.makedirs(exp_path+"/tmp/", exist_ok=True)
+    
     timeout = 30
     times = np.array([[0]])
 
@@ -118,7 +122,7 @@ if __name__ == "__main__":
     agent1.state_target[1] = agent1_goal[1].numpy()
 
     if(rec_video):
-        plt_sv_dir = exp_num+"/tmp/"
+        plt_sv_dir = plt_dir
         p = 0
     # x_lane = -6
     t_taken = 0
