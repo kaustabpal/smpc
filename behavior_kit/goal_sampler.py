@@ -19,20 +19,20 @@ class Goal_Sampler:
         self.c_state = c_state # start state
         self.g_state = g_state # goal state
         self.step_size_mean = 0.9
-        self.step_size_cov = 0.2
+        self.step_size_cov = 0.7
         self.avoid_obs = False
         self.vl = vl
         self.wl = wl
         self.v_ub = 20
         self.v_lb = 8
-        self.w_ub = 0.78
-        self.w_lb = -0.78
+        self.w_ub = 0.38
+        self.w_lb = -0.38
         self.max_ctrl = torch.tensor([self.v_ub, self.w_ub])
         self.min_ctrl = torch.tensor([self.v_lb, self.w_lb])
-        self.amin = -5
-        self.amax = 5
-        self.jmin = -10
-        self.jmax = 10
+        self.amin = -3.19
+        self.amax = 3.19
+        self.jmin = -0.1
+        self.jmax = 0.1
         self.init_q = [self.vl, self.wl]
 
         # obstacle info
@@ -45,12 +45,12 @@ class Goal_Sampler:
         self.dt = 0.041
         self.horizon = 30 # Planning horizon
         self.d_action = 2
-        self.knot_scale = 5
+        self.knot_scale = 4
         self.n_knots = self.horizon//self.knot_scale
         self.ndims = self.n_knots*self.d_action
         self.bspline_degree = 3
-        self.num_particles = 40
-        self.top_K = 5 #int(0.02*self.num_particles) # Number of top samples
+        self.num_particles = 100
+        self.top_K = int(0.02*self.num_particles) # Number of top samples
         
         self.null_act_frac = 0.01
         self.num_null_particles = round(int(self.null_act_frac * self.num_particles * 1.0))
@@ -75,8 +75,8 @@ class Goal_Sampler:
         self.init_mean = self.init_action 
         self.mean_action = self.init_mean.clone()
         self.best_traj = self.mean_action.clone()
-        self.init_v_cov = 0.01
-        self.init_w_cov = 0.01
+        self.init_v_cov = 0.05
+        self.init_w_cov = 0.05
         self.init_cov_action = torch.tensor([self.init_v_cov, self.init_w_cov])
         self.cov_action = self.init_cov_action
         self.scale_tril = torch.sqrt(self.cov_action)
@@ -91,7 +91,7 @@ class Goal_Sampler:
         self.top_trajs = torch.zeros((self.top_K, self.horizon+1, 3))
         self.top_traj = self.c_state.reshape(1,3)*torch.ones((self.horizon+1, 3))
         
-        self.max_free_ball_radius = 1.5
+        self.max_free_ball_radius = 2.5
         self.centers = torch.ones(self.horizon+1,2)
         self.free_ball_radius = self.max_free_ball_radius*torch.ones(self.horizon+1,1)
 
@@ -107,7 +107,7 @@ class Goal_Sampler:
     # def initialize_sig(self):
     #     self.SIG = 0.7*torch.ones((2,self.horizon))
     
-    def bspline(self, c_arr, t_arr=None, n=100, degree=3):
+    def bspline(self, c_arr, t_arr=None, n=10, degree=3):
         sample_device = c_arr.device
         sample_dtype = c_arr.dtype
         cv = c_arr.cpu().numpy()
@@ -353,21 +353,21 @@ class Goal_Sampler:
                 collision_cost_N[n] += n_sum
         return collision_cost_N
     
-    def grad(self,center):
+    def grad(self,center,i):
         left_lane_bound = -4.5
         right_lane_bound = 4.5
-        dx = [0.0001, 0.0]
-        dy = [0.0, 0.0001]
+        dx = [0.001, 0.0]
+        dy = [0.0, 0.001]
         min_dx_plus = 9999999999
         min_dx_minus = 9999999999
         min_dy_plus = 9999999999
         min_dy_minus = 9999999999
         for o in self.obstacles:
-            dist_dx_plus = torch.sqrt((center[1]-o[1])**2 + (center[0]+dx[0]-o[0])**2)
-            dist_dx_minus = torch.sqrt((center[1]-o[1])**2 + (center[0]-dx[0]-o[0])**2)
+            dist_dx_plus = torch.sqrt((center[1]-o.X0.full()[1,i])**2 + (center[0]+dx[0]-o.X0.full()[0,i])**2)
+            dist_dx_minus = torch.sqrt((center[1]-o.X0.full()[1,i])**2 + (center[0]-dx[0]-o.X0.full()[0,i])**2)
             
-            dist_dy_plus = torch.sqrt((center[1]+dy[1]-o[1])**2 + (center[0]-o[0])**2)
-            dist_dy_minus = torch.sqrt((center[1]-dy[1]-o[1])**2 + (center[0]-o[0])**2)
+            dist_dy_plus = torch.sqrt((center[1]+dy[1]-o.X0.full()[1,i])**2 + (center[0]-o.X0.full()[0,i])**2)
+            dist_dy_minus = torch.sqrt((center[1]-dy[1]-o.X0.full()[1,i])**2 + (center[0]-o.X0.full()[0,i])**2)
             
             if(dist_dx_plus<min_dx_plus):
                 min_dx_plus = dist_dx_plus
@@ -410,11 +410,11 @@ class Goal_Sampler:
         left_lane_bound = -4.5
         right_lane_bound = 4.5
         for i in range(1,self.horizon+1):
-            self.centers[i,:] = copy.deepcopy(self.top_trajs[-1,i,:2])
+            # self.centers[i,:] = copy.deepcopy(self.top_trajs[-1,i,:2])
             # center = self.centers[i,:]
             min_d = 9999999999
             for o in self.obstacles:
-                dist = torch.sqrt((self.centers[i,1]-o[1])**2 + (self.centers[i,0]-o[0])**2)-1
+                dist = torch.sqrt((self.centers[i,1]-o.X0.full()[1,i])**2 + (self.centers[i,0]-o.X0.full()[0,i])**2)-1
                 if(dist<min_d):
                     min_d = copy.deepcopy(dist)
             dist_2_right_lane = torch.sqrt((self.centers[i,0]-right_lane_bound)**2)
@@ -436,37 +436,37 @@ class Goal_Sampler:
                 new_center = copy.deepcopy(self.centers[i,:])
                 step = 0.00
                 current_d = copy.deepcopy(min_d)
-                self.step_size = 0.009
-                grad_center = self.grad(self.centers[i,:])
+                self.step_size = 0.001
+                # grad_center = self.grad(self.centers[i,:],i)
                 # for k in range(3):
                 iter = 0
-                while(np.fabs(current_d - (step + min_d)) <=0.00000001 ):
-                    iter += 1
-                    print(iter)
-                    step = step + self.step_size;
+                while(np.fabs(current_d - (step + min_d)) <=0.0000000000001 ):
+                    # iter += 1
+                    # print(iter)
                     # print(self.centers[i,:].shape)
                     # print(self.grad(self.centers[i,:]).shape)
                     # quit()
-                    new_center = self.centers[i,:] + (self.grad(self.centers[i,:]) * step);
-                    new_min_d = copy.deepcopy(self.max_free_ball_radius)
+                    new_center = self.centers[i,:] + (self.grad(self.centers[i,:],i) * step);
+                    # new_min_d = copy.deepcopy(self.max_free_ball_radius)
                     for o in self.obstacles:
-                        dist = torch.sqrt((new_center[1]-o[1])**2 + (new_center[0]-o[0])**2)-1
-                        if(dist<new_min_d):
-                            new_min_d = copy.deepcopy(dist)
-                    dist_2_right_lane = torch.sqrt((self.centers[i,0]-right_lane_bound)**2)
-                    dist_2_left_lane = torch.sqrt((self.centers[i,0]-left_lane_bound)**2)
+                        dist = torch.sqrt((new_center[1]-o.X0.full()[1,i])**2 + (new_center[0]-o.X0.full()[0,i])**2)-1
+                        if(dist<current_d):
+                            current_d = copy.deepcopy(dist)
+                    dist_2_right_lane = torch.sqrt((new_center[0]-right_lane_bound)**2)
+                    dist_2_left_lane = torch.sqrt((new_center[0]-left_lane_bound)**2)
                     if(dist_2_right_lane<=dist_2_left_lane):
                         min_lane_dist = dist_2_right_lane
                     else:
                         min_lane_dist = dist_2_left_lane
-                    if(min_lane_dist<new_min_d):
-                        new_min_d = copy.deepcopy(min_lane_dist)
-                    current_d = copy.deepcopy(new_min_d)
+                    if(min_lane_dist<current_d):
+                        current_d = copy.deepcopy(min_lane_dist)
+                    # current_d = copy.deepcopy(new_min_d)
+                    step = step + self.step_size
 
                 # self.top_trajs[0,i,0] = copy.deepcopy(new_center[0])
                 # self.top_trajs[0,i,1] = copy.deepcopy(new_center[1])
-                self.centers[i,:] = new_center
-                self.free_ball_radius[i] = current_d
+                self.centers[i,:] = copy.deepcopy(new_center)
+                self.free_ball_radius[i] = copy.deepcopy(current_d)
                 balls.append([new_center, current_d])
         self.balls = balls    
     

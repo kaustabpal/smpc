@@ -47,7 +47,7 @@ def draw(agent_list):
             
         else:
             col = 'r'
-            plt.scatter(x[0,1:],x[1,1:], marker='.', color=col, s=1)
+            plt.scatter(x[0,1:],x[1,1:], marker='.', color=col, s=2)
 
         x_a, y_a = draw_circle(x[0,1], x[1,1], a.radius) 
         plt.plot(x_a, y_a, col, linewidth=1)
@@ -57,6 +57,6 @@ def draw(agent_list):
         plt.annotate(str(a.vl), xy=(x[0,1]+0.1, x[1,1]-0.5), size=6)
         
 
-        plt.plot([(x[0,1]), float(g_state[0])], [x[1,1], float(g_state[1])], linestyle='dotted', c='k')
+        # plt.plot([(x[0,1]), float(g_state[0])], [x[1,1], float(g_state[1])], linestyle='dotted', c='k')
         
 

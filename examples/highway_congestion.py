@@ -14,9 +14,9 @@ np.set_printoptions(suppress=True)
 
 if __name__ == "__main__":
     dtype = torch.float32
-    rec_video = True
+    rec_video = False
     
-    exp_name = "find_goal"
+    exp_name = "dynamic_scene"
     repo_path = os.path.abspath(os.path.join(os.path.dirname(__file__),".."))
     results_path = repo_path+"/results"
     exp_path = results_path+"/"+exp_name
@@ -63,7 +63,7 @@ if __name__ == "__main__":
     agent1.v_lb = agent_v_lb 
     # agent1.w_lb = agent_w_lb
     # agent1.w_ub = agent_w_ub
-    agent1.vl = ca.DM(13)
+    agent1.vl = ca.DM(12)
 
     o_v_ub = [13,14,13,12,11,13,13,13,13,12]
     for i in range(len(obstacles)):
@@ -90,14 +90,14 @@ if __name__ == "__main__":
     agent1.i_state = torch.tensor(agent1.state_init.full(),dtype=dtype).reshape(3)
 
     ######################
-    obs_pos = []
-    for o in agent1.obstacles:
-        # o.v_ub = 10
-        dist = np.sqrt((agent1.state_init[1]-o.state_init[1])**2 + (agent1.state_init[0]-o.state_init[0])**2)
-        if(dist <=agent1.sensor_radius):
-            obs_pos.append(np.array(o.state_init.full()).reshape(3))
+    # obs_pos = []
+    # for o in agent1.obstacles:
+    #     # o.v_ub = 10
+    #     dist = np.sqrt((agent1.state_init[1]-o.state_init[1])**2 + (agent1.state_init[0]-o.state_init[0])**2)
+    #     if(dist <=agent1.sensor_radius):
+    #         obs_pos.append(np.array(o.state_init.full()).reshape(3))
             
-    sampler = Goal_Sampler(agent1.i_state, g_region_cntr, agent1.vl.full()[0][0], 0, obstacles=obs_pos)
+    sampler = Goal_Sampler(agent1.i_state, g_region_cntr, agent1.vl.full()[0][0], 0, obstacles=agent1.obstacles)
 
     agent1.pred_controls()
     sampler.centers = torch.tensor(agent1.X0.full()).T[:,:2]
@@ -130,12 +130,12 @@ if __name__ == "__main__":
     while( (ca.norm_2(agent1.state_init - agent1.state_target)>=1) and timeout >0):
         timeout = timeout - agent1.dt
         # t1 = time()
-        obs_pos = []
-        for o in agent1.obstacles:
-            dist = np.sqrt((agent1.state_init[1]-o.state_init[1])**2 + (agent1.state_init[0]-o.state_init[0])**2)
-            if(dist <=agent1.sensor_radius):
-                obs_pos.append(np.array(o.state_init.full()).reshape(3))
-        sampler.obstacles = obs_pos
+        # obs_pos = []
+        # for o in agent1.obstacles:
+        #     dist = np.sqrt((agent1.state_init[1]-o.state_init[1])**2 + (agent1.state_init[0]-o.state_init[0])**2)
+        #     if(dist <=agent1.sensor_radius):
+        #         obs_pos.append(np.array(o.state_init.full()).reshape(3))
+        # sampler.obstacles = obs_pos
         t1 = time.time()
         sampler.plan_traj()
         delta_t = (delta_t + (time.time() - t1))/2
@@ -157,11 +157,7 @@ if __name__ == "__main__":
         agent1.pred_controls()
         print(time.time() - t1)
         print("#################")
-        v = sampler.get_vel(agent1.u0.full())   
-        # sampler.centers = torch.tensor(agent1.X0.full()).T[:,:2]
-        # sampler.best_traj = sampler.mean_action
-        # print(v.T.shape)
-        sampler.best_traj = v.T
+        
         
         # t_taken = (t_taken + (time()-t1))/2
         # print(t_taken)
@@ -183,7 +179,7 @@ if __name__ == "__main__":
         for o in obstacles:
             o.vl += o.u0[0,0]*o.dt
             o.wl += o.u0[1,0]*o.dt
-            o.state_init = o.X0[:,1]
+            o.state_init = copy.deepcopy(o.X0[:,1])
             o.i_state = np.array(o.state_init.full()).reshape(3)
             
 
@@ -220,6 +216,11 @@ if __name__ == "__main__":
             # sampler.g_state[1] = sampler.c_state[1] + 30
         for o in agent1.obstacles:
             o.state_target[1] = o.state_init[1]+30
+        v = sampler.get_vel(agent1.u0.full())   
+        sampler.centers = torch.tensor(agent1.X0.full()).T[:,:2]
+        # sampler.best_traj = sampler.mean_action
+        # print(v.T.shape)
+        sampler.mean_action = v.T
 
     
     print('avg iteration time: ', t_taken, 'sec') #np.array(times).mean() * 1000, 'ms')
