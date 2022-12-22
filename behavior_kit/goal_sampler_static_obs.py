@@ -208,6 +208,7 @@ class Goal_Sampler:
             self.traj_N[i,1:,:] = torch.hstack((x_new, y_new, theta_new))
             t.append(time.time() - t1)  
             
+            # lane boundary constraints
             t3 = time.time()
             left_lane_cost = 1000*torch.ones(self.traj_N[i,self.traj_N[i,:,0]<left_lane_bound,0].shape)
             right_lane_cost = 1000*torch.ones(self.traj_N[i,self.traj_N[i,:,0]>right_lane_bound,0].shape)
@@ -215,6 +216,7 @@ class Goal_Sampler:
             self.right_lane_bound_cost_N[i] = torch.sum(right_lane_cost) 
             t_3.append(time.time() - t3)
             
+            # angular velocity constraints
             self.ang_vel_cost_N[i] = torch.norm(self.controls_N[i,:,1])
             
             
@@ -227,6 +229,7 @@ class Goal_Sampler:
             #     # print(self.collision_cost_N[i])
             # t_4.append(time.time()-t1)
             
+            # free balls constraints
             for j in range(1,self.controls_N.shape[1]+1):
                 # print(j, len(self.balls))
                 ## Free balls cost
@@ -364,11 +367,11 @@ class Goal_Sampler:
         min_dy_plus = 9999999999
         min_dy_minus = 9999999999
         for o in self.obstacles:
-            dist_dx_plus = torch.sqrt((center[1]-o.X0.full()[1,i])**2 + (center[0]+dx[0]-o.X0.full()[0,i])**2)
-            dist_dx_minus = torch.sqrt((center[1]-o.X0.full()[1,i])**2 + (center[0]-dx[0]-o.X0.full()[0,i])**2)
+            dist_dx_plus = torch.sqrt((center[1]-o[1])**2 + (center[0]+dx[0]-o[0])**2)
+            dist_dx_minus = torch.sqrt((center[1]-o[1])**2 + (center[0]-dx[0]-o[0])**2)
             
-            dist_dy_plus = torch.sqrt((center[1]+dy[1]-o.X0.full()[1,i])**2 + (center[0]-o.X0.full()[0,i])**2)
-            dist_dy_minus = torch.sqrt((center[1]-dy[1]-o.X0.full()[1,i])**2 + (center[0]-o.X0.full()[0,i])**2)
+            dist_dy_plus = torch.sqrt((center[1]+dy[1]-o[1])**2 + (center[0]-o[0])**2)
+            dist_dy_minus = torch.sqrt((center[1]-dy[1]-o[1])**2 + (center[0]-o[0])**2)
             
             if(dist_dx_plus<min_dx_plus):
                 min_dx_plus = dist_dx_plus
@@ -415,7 +418,7 @@ class Goal_Sampler:
             # center = self.centers[i,:]
             min_d = 9999999999
             for o in self.obstacles:
-                dist = torch.sqrt((self.centers[i,1]-o.X0.full()[1,i])**2 + (self.centers[i,0]-o.X0.full()[0,i])**2)-1
+                dist = torch.sqrt((self.centers[i,1]-o[1])**2 + (self.centers[i,0]-o[0])**2)-1
                 if(dist<min_d):
                     min_d = copy.deepcopy(dist)
             dist_2_right_lane = torch.sqrt((self.centers[i,0]-right_lane_bound)**2)
@@ -450,7 +453,7 @@ class Goal_Sampler:
                     new_center = self.centers[i,:] + (self.grad(self.centers[i,:],i) * step);
                     # new_min_d = copy.deepcopy(self.max_free_ball_radius)
                     for o in self.obstacles:
-                        dist = torch.sqrt((new_center[1]-o.X0.full()[1,i])**2 + (new_center[0]-o.X0.full()[0,i])**2)-1
+                        dist = torch.sqrt((new_center[1]-o[1])**2 + (new_center[0]-o[0])**2)-1
                         if(dist<current_d):
                             current_d = copy.deepcopy(dist)
                     dist_2_right_lane = torch.sqrt((new_center[0]-right_lane_bound)**2)

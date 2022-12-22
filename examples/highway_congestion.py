@@ -1,5 +1,5 @@
 import torch
-from behavior_kit.goal_sampler import Goal_Sampler
+from behavior_kit.goal_sampler_static_obs import Goal_Sampler
 from behavior_kit.casadi_code import Agent
 import os
 import numpy as np
@@ -67,10 +67,10 @@ if __name__ == "__main__":
 
     o_v_ub = [13,14,13,12,11,13,13,13,13,12]
     for i in range(len(obstacles)):
-        obstacles[i].v_ub = 10 #o_v_ub[i] #np.random.randint(11,15)
+        obstacles[i].v_ub = np.random.randint(11,15)
         obstacles[i].v_lb = 0
-        obstacles[i].w_ub = 0
-        obstacles[i].w_lb = 0
+        # obstacles[i].w_ub = 0
+        # obstacles[i].w_lb = 0
         obstacles[i].vl = ca.DM(np.random.randint(10,13)) 
         agent1.obstacles.append(obstacles[i])
         draw_list.append(obstacles[i])
@@ -90,14 +90,14 @@ if __name__ == "__main__":
     agent1.i_state = torch.tensor(agent1.state_init.full(),dtype=dtype).reshape(3)
 
     ######################
-    # obs_pos = []
-    # for o in agent1.obstacles:
-    #     # o.v_ub = 10
-    #     dist = np.sqrt((agent1.state_init[1]-o.state_init[1])**2 + (agent1.state_init[0]-o.state_init[0])**2)
-    #     if(dist <=agent1.sensor_radius):
-    #         obs_pos.append(np.array(o.state_init.full()).reshape(3))
+    obs_pos = []
+    for o in agent1.obstacles:
+        # o.v_ub = 10
+        dist = np.sqrt((agent1.state_init[1]-o.state_init[1])**2 + (agent1.state_init[0]-o.state_init[0])**2)
+        if(dist <=agent1.sensor_radius):
+            obs_pos.append(np.array(o.state_init.full()).reshape(3))
             
-    sampler = Goal_Sampler(agent1.i_state, g_region_cntr, agent1.vl.full()[0][0], 0, obstacles=agent1.obstacles)
+    sampler = Goal_Sampler(agent1.i_state, g_region_cntr, agent1.vl.full()[0][0], 0, obstacles=obs_pos)
 
     agent1.pred_controls()
     sampler.centers = torch.tensor(agent1.X0.full()).T[:,:2]
@@ -130,12 +130,12 @@ if __name__ == "__main__":
     while( (ca.norm_2(agent1.state_init - agent1.state_target)>=1) and timeout >0):
         timeout = timeout - agent1.dt
         # t1 = time()
-        # obs_pos = []
-        # for o in agent1.obstacles:
-        #     dist = np.sqrt((agent1.state_init[1]-o.state_init[1])**2 + (agent1.state_init[0]-o.state_init[0])**2)
-        #     if(dist <=agent1.sensor_radius):
-        #         obs_pos.append(np.array(o.state_init.full()).reshape(3))
-        # sampler.obstacles = obs_pos
+        obs_pos = []
+        for o in agent1.obstacles:
+            dist = np.sqrt((agent1.state_init[1]-o.state_init[1])**2 + (agent1.state_init[0]-o.state_init[0])**2)
+            if(dist <=agent1.sensor_radius):
+                obs_pos.append(np.array(o.state_init.full()).reshape(3))
+        sampler.obstacles = obs_pos
         t1 = time.time()
         sampler.plan_traj()
         delta_t = (delta_t + (time.time() - t1))/2
