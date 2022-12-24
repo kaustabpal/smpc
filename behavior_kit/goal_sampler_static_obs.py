@@ -18,15 +18,15 @@ class Goal_Sampler:
         self.radius = 1.0
         self.c_state = c_state # start state
         self.g_state = g_state # goal state
-        self.step_size_mean = 0.9
-        self.step_size_cov = 0.7
+        self.step_size_mean = 0.5
+        self.step_size_cov = 0.9
         self.avoid_obs = False
         self.vl = vl
         self.wl = wl
         self.v_ub = 20
-        self.v_lb = 8
-        self.w_ub = 0.38
-        self.w_lb = -0.38
+        self.v_lb = 1
+        self.w_ub = 0.4
+        self.w_lb = -0.4
         self.max_ctrl = torch.tensor([self.v_ub, self.w_ub])
         self.min_ctrl = torch.tensor([self.v_lb, self.w_lb])
         self.amin = -3.19
@@ -50,7 +50,7 @@ class Goal_Sampler:
         self.ndims = self.n_knots*self.d_action
         self.bspline_degree = 3
         self.num_particles = 100
-        self.top_K = int(0.02*self.num_particles) # Number of top samples
+        self.top_K = int(0.4*self.num_particles) # Number of top samples
         
         self.null_act_frac = 0.01
         self.num_null_particles = round(int(self.null_act_frac * self.num_particles * 1.0))
@@ -91,7 +91,7 @@ class Goal_Sampler:
         self.top_trajs = torch.zeros((self.top_K, self.horizon+1, 3))
         self.top_traj = self.c_state.reshape(1,3)*torch.ones((self.horizon+1, 3))
         
-        self.max_free_ball_radius = 1.5
+        self.max_free_ball_radius = 2.5
         self.centers = torch.ones(self.horizon+1,2)
         self.free_ball_radius = self.max_free_ball_radius*torch.ones(self.horizon+1,1)
 
@@ -220,12 +220,11 @@ class Goal_Sampler:
             self.ang_vel_cost_N[i] = torch.norm(self.controls_N[i,:,1])
             
             
-            
             # Obstacle avoidance
             # t1 = time.time()
             # for o in self.obstacles:
             #     dist = torch.linalg.norm(self.traj_N[i,:,:2]-torch.from_numpy(o)[:2]*torch.ones(self.horizon+1,2),axis = 1)
-            #     self.collision_cost_N[i] += torch.sum(1000*(dist<=2).type(torch.float32))
+            #     self.collision_cost_N[i] += torch.sum(500*(dist<=2).type(torch.float32))
             #     # print(self.collision_cost_N[i])
             # t_4.append(time.time()-t1)
             
@@ -235,10 +234,12 @@ class Goal_Sampler:
                 ## Free balls cost
                 t2 = time.time()
                 center, radius = self.balls[j-1]
-                d = torch.sqrt( (center[0]-self.traj_N[i,j,0])**2 + (center[1]-self.traj_N[i,j,1])**2)
+                d = torch.sqrt( (center[0]-self.traj_N[i,j,0])**2 + (center[1]-self.traj_N[i,j,1])**2)-1
+                # self.in_balls_cost_N[i] +=d
                 if(d>=radius):
                     self.in_balls_cost_N[i] +=500
                 t_2.append(time.time()-t2)
+            
                     
                 # # Lane boundary cost    
                 # t3 = time.time()
@@ -247,11 +248,13 @@ class Goal_Sampler:
                 # if(self.traj_N[i,j,0]> right_lane_bound):
                 #     self.right_lane_bound_cost_N[i] += 50
                 # t_3.append(time.time() - t3)
+        # print(self.in_balls_cost_N)
+        # input()
                     
         t = np.array(t)
         t_2 = np.array(t_2)
         t_3 = np.array(t_3)
-        print("Rollout time: ",np.sum(t))
+        # print("Rollout time: ",np.sum(t))
         # print("Free balls time: ",np.sum(t_2))
         # print("Lane boundary time: ",np.sum(t_3))
         # print("Obstacle avoidance time: ",np.sum(t_4))
@@ -273,105 +276,22 @@ class Goal_Sampler:
         top_cost = torch.index_select(self.total_cost_N, 0, top_idx)
         w = self._exp_util(top_cost)
         return w, top_controls
-    
-    # def goal_region_cost(self, traj, goal, radius = 3.5):
-    #     goal_region_cost_N = torch.zeros((traj.shape[0]))       
-    #     for i in range(traj.shape[0]):
-    #         # for j in range(traj.shape[1]-1):
-    #         dist = torch.linalg.norm(traj[i, self.horizon,:2] - goal[:2])
-    #         if(dist<=radius):
-    #             goal_region_cost_N[i] = 0
-    #         else:
-    #             goal_region_cost_N[i] = copy.deepcopy(dist)
-    #     return goal_region_cost_N
-    
-    def acc_cost(self, controls, acc_bound = [-3, 3]):
-        dt = self.dt
-        acc_cost_N = torch.zeros((controls.shape[0], controls.shape[1]))
-        # print(V_N_T.shape[1])
-        # acc_cost_N[:,0] = (self.controls_N[:,1,0] - self.controls_N[:,0,0])/dt
-        for i in range(controls.shape[1]-1):
-            acc_cost_N[:,i] = (controls[:,i+1,0] - controls[:,i,0])/dt
-
-        acc_cost_N[(acc_cost_N>=acc_bound[0]) & (acc_cost_N<=acc_bound[1])] = 0
-        return torch.sum(acc_cost_N,axis=1)
-    
-    def dist_to_best_cost(self):
-        dist_to_best_cost_N = torch.zeros((self.controls_N.shape[0]))
-        for i in range(self.controls_N.shape[0]):
-           dist_to_best_cost_N[i] = torch.linalg.norm(self.controls_N[i,:,:] -  self.best_traj)
-        return dist_to_best_cost_N
-            
-    def ang_acc_cost(self, controls, ang_acc_bound = [-0.1, 0.1]):
-        dt = self.dt
-        ang_acc_cost_N = torch.zeros((controls.shape[0], controls.shape[1]))
-        # print(V_N_T.shape[1])
-        # acc_cost_N[:,0] = (self.controls_N[:,1,1] - self.controls_N[:,0,1])/dt
-        for i in range(controls.shape[1]-1):
-            ang_acc_cost_N[:,i] = (controls[:,i+1,1] - controls[:,i,1])/dt
-
-        ang_acc_cost_N[(ang_acc_cost_N>=self.jmin) & (ang_acc_cost_N<=self.jmax)] = 0
-        return torch.sum(ang_acc_cost_N,axis=1)
-    
-    def ang_vel_cost(self, controls):
-        dt = self.dt
-        ang_vel_cost_N = torch.zeros((controls.shape[0]))
-        # print(V_N_T.shape[1])
-        # acc_cost_N[:,0] = (self.controls_N[:,1,1] - self.controls_N[:,0,1])/dt
-        ang_vel_cost = 0
-        for i in range(controls.shape[1]):
-            ang_vel_cost_N[:] += controls[:,i,1]**2
-
-        return ang_vel_cost_N
-    
-    # def left_lane_boundary_cost(self, traj, left_lane_bound = -3.5):
-    #     left_lane_bound_cost_N = torch.zeros((traj.shape[0]))
-    #     for n in range(0, traj.shape[0]):
-    #         n_sum = 0
-    #         for t in range(0, traj.shape[1]):
-    #             if(traj[n,t,0]<left_lane_bound):
-    #                 n_sum += 50
-    #         left_lane_bound_cost_N[n] = n_sum
-    #     return left_lane_bound_cost_N
-
-    # def right_lane_boundary_cost(self, traj, right_lane_bound = 3.5):
-    #     right_lane_bound_cost_N = torch.zeros((traj.shape[0]))
-    #     for n in range(0, traj.shape[0]):
-    #         n_sum = 0
-    #         for t in range(0, traj.shape[1]):
-    #             if(traj[n,t,0]>right_lane_bound):
-    #                 n_sum += 50
-    #         right_lane_bound_cost_N[n] = n_sum
-    #     return right_lane_bound_cost_N
-    
-    def collision_cost(self, traj):
-        radius = 1
-        collision_cost_N = torch.zeros((traj.shape[0]))
-        for n in range(0, traj.shape[0]):
-            n_sum = 0
-            for t in range(0, traj.shape[1]):
-                for o in self.obstacles:
-                    dist = torch.linalg.norm(traj[n,t,:2]- o[:2])
-                    if(dist <=2*radius):
-                        n_sum += 5000
-                collision_cost_N[n] += n_sum
-        return collision_cost_N
-    
+        
     def grad(self,center,i):
         left_lane_bound = -4.5
         right_lane_bound = 4.5
-        dx = [0.001, 0.0]
-        dy = [0.0, 0.001]
+        dx = [0.1, 0.0]
+        dy = [0.0, 0.1]
         min_dx_plus = 9999999999
         min_dx_minus = 9999999999
         min_dy_plus = 9999999999
         min_dy_minus = 9999999999
         for o in self.obstacles:
-            dist_dx_plus = torch.sqrt((center[1]-o[1])**2 + (center[0]+dx[0]-o[0])**2)
-            dist_dx_minus = torch.sqrt((center[1]-o[1])**2 + (center[0]-dx[0]-o[0])**2)
+            dist_dx_plus = torch.sqrt((center[1]-o[1])**2 + (center[0]+dx[0]-o[0])**2)-2
+            dist_dx_minus = torch.sqrt((center[1]-o[1])**2 + (center[0]-dx[0]-o[0])**2)-2
             
-            dist_dy_plus = torch.sqrt((center[1]+dy[1]-o[1])**2 + (center[0]-o[0])**2)
-            dist_dy_minus = torch.sqrt((center[1]-dy[1]-o[1])**2 + (center[0]-o[0])**2)
+            dist_dy_plus = torch.sqrt((center[1]+dy[1]-o[1])**2 + (center[0]-o[0])**2)-2
+            dist_dy_minus = torch.sqrt((center[1]-dy[1]-o[1])**2 + (center[0]-o[0])**2)-2
             
             if(dist_dx_plus<min_dx_plus):
                 min_dx_plus = dist_dx_plus
@@ -413,8 +333,11 @@ class Goal_Sampler:
         balls = []
         left_lane_bound = -4.5
         right_lane_bound = 4.5
+        # self.centers[:-1,:] = self.centers[1:,:].clone()
+        # self.centers[-1,:] = self.top_trajs[-1,-1,:2].clone()
+        # print(self.centers.shape)
         for i in range(1,self.horizon+1):
-            # self.centers[i,:] = copy.deepcopy(self.top_trajs[-1,i,:2])
+            # self.centers[i,:] = copy.deepcopy(self.traj_N[-1,i,:2])
             # center = self.centers[i,:]
             min_d = 9999999999
             for o in self.obstacles:
@@ -436,17 +359,18 @@ class Goal_Sampler:
                 self.free_ball_radius[i] = self.max_free_ball_radius
                 balls.append([self.centers[i,:], self.max_free_ball_radius])
             else:   
+                # print("True")
                 # print(min_d)
                 new_center = copy.deepcopy(self.centers[i,:])
-                step = 0.00
+                step = 0.0
                 current_d = copy.deepcopy(min_d)
                 self.step_size = 0.001
                 # grad_center = self.grad(self.centers[i,:],i)
                 # for k in range(3):
                 iter = 0
-                while(np.fabs(current_d - (step + min_d)) <=0.0000000000001 ):
-                    # iter += 1
-                    # print(iter)
+                while(np.fabs(current_d - (step + min_d)) <=0.005 ):
+                    iter += 1
+                    print(iter)
                     # print(self.centers[i,:].shape)
                     # print(self.grad(self.centers[i,:]).shape)
                     # quit()
@@ -465,7 +389,7 @@ class Goal_Sampler:
                     if(min_lane_dist<current_d):
                         current_d = copy.deepcopy(min_lane_dist)
                     # current_d = copy.deepcopy(new_min_d)
-                    step = step + self.step_size
+                    step += self.step_size
 
                 # self.top_trajs[0,i,0] = copy.deepcopy(new_center[0])
                 # self.top_trajs[0,i,1] = copy.deepcopy(new_center[1])
@@ -473,18 +397,6 @@ class Goal_Sampler:
                 self.free_ball_radius[i] = copy.deepcopy(current_d)
                 balls.append([new_center, current_d])
         self.balls = balls    
-    
-    # def in_balls_cost(self):
-    #     # self.get_free_balls()
-    #     in_balls_cost_N = torch.zeros((self.controls_N.shape[0]))
-    #     for i in range(len(self.balls)):
-    #         center, radius = self.balls[i]
-    #         for j in range(self.traj_N.shape[0]):
-    #             d = np.sqrt( (center[0,0]-self.traj_N[j,i,0])**2 + (center[1,0]-self.traj_N[j,i,1])**2)
-    #             if(d>=radius-1):
-    #                 in_balls_cost_N[j] +=100
-    #     return in_balls_cost_N
-
     
     def _exp_util(self, costs):
         """
@@ -501,45 +413,7 @@ class Goal_Sampler:
         # #calculate soft-max
         w = torch.softmax((-1.0/beta) * traj_costs, dim=0)
         return w
-    
-    def get_cost(self):
-        # in_balls_cost_N = self.in_balls_cost()
-        
-        dist_to_best_cost_N = self.dist_to_best_cost()
-        top_values, top_idx = torch.topk(dist_to_best_cost_N, int(self.num_particles*0.99), largest=False, sorted=True)
-        closest_to_best_controls = torch.index_select(self.controls_N, 0, top_idx)
-        closest_to_best_traj = torch.index_select(self.traj_N, 0, top_idx)
-        
-        
-        goal_region_cost_N = self.goal_region_cost(closest_to_best_traj, self.g_state, 3.5).to(self.device)
-        # # print(goal_region_cost_N.shape)
-        ang_vel_cost = self.ang_vel_cost(closest_to_best_controls).to(self.device)
-        # # print(ang_vel_cost.shape)
-        acc_cost_N = self.acc_cost(closest_to_best_controls, [self.amin, self.amax]).to(self.device)
-        # # print(acc_cost_N.shape)
-        ang_acc_cost_N = self.ang_acc_cost(closest_to_best_controls).to(self.device)
-        # print(ang_acc_cost_N.shape)
-        left_lane_bound_cost = self.left_lane_boundary_cost(closest_to_best_traj, left_lane_bound = -4.5+1).to(self.device)
-        right_lane_bound_cost = self.right_lane_boundary_cost(closest_to_best_traj, right_lane_bound = 4.5-1).to(self.device)
-        collision_cost_N = self.collision_cost(closest_to_best_traj).to(self.device)
-        self.total_cost_N = 0*goal_region_cost_N + 2*acc_cost_N + 10*ang_acc_cost_N +\
-            1*left_lane_bound_cost + 1*right_lane_bound_cost + 1*collision_cost_N + 20*ang_vel_cost
-        # self.total_cost_N = 1*left_lane_bound_cost + 1*right_lane_bound_cost + in_balls_cost_N + collision_cost_N
-        # self.total_cost_N = 1*left_lane_bound_cost + 1*right_lane_bound_cost + 1*collision_cost_N
-        # print(self.total_cost_N)
-        
-        top_values, top_idx = torch.topk(self.total_cost_N, self.top_K, largest=False, sorted=True)
-        # print(top_idx)
-        # print(goal_region_cost_N)
-        # input()
-        self.top_trajs = torch.index_select(self.traj_N, 0, top_idx)
-        top_controls = torch.index_select(self.controls_N, 0, top_idx)
-        self.best_traj = copy.deepcopy(top_controls[0,:,:])
-        top_cost = torch.index_select(self.total_cost_N, 0, top_idx)
-        top_w = self._exp_util(top_cost)
-        return top_w, top_controls
-        
-    
+       
     def update_distribution(self, top_w, top_controls):
         
         weighted_seq = top_w.to(self.device) * top_controls.to(self.device).T        
@@ -559,7 +433,8 @@ class Goal_Sampler:
     
     def plan_traj(self):
         t1 = time.time()
-        self.get_free_balls()
+        # self.centers[:,:] = copy.deepcopy(self.top_trajs[0,:,:2])
+        # self.get_free_balls()
         # print("Free Balls: ", time.time() - t1)
         # top_w, top_controls = self.get_cost()
         self.cov_action = self.init_cov_action
@@ -569,6 +444,7 @@ class Goal_Sampler:
             self.scale_tril = torch.sqrt(self.cov_action)
             self.full_scale_tril = torch.diag(self.scale_tril)
             t1 = time.time()
+            self.get_free_balls()
             self.sample_controls()
             # print("Sample Controls: ", time.time() - t1)
             
@@ -578,11 +454,13 @@ class Goal_Sampler:
             t1 = time.time()
             self.update_distribution(top_w, top_controls)
             # print("Update_Distribution: ", time.time() - t1)
-            print("#######################")
+            # print("#######################")
         self.scale_tril = torch.sqrt(self.cov_action)
         self.full_scale_tril = torch.diag(self.scale_tril)
         self.sample_controls()
         top_w, top_controls = self.rollout()
+        # self.centers[:,:] = copy.deepcopy(self.top_trajs[0,:,:2])
+        # self.get_free_balls()
         self.mean_action[:-1,:] = self.mean_action[1:,:].clone()
         self.mean_action[-1,:] = self.init_mean[-1,:].clone()
             

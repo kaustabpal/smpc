@@ -119,7 +119,7 @@ if __name__ == "__main__":
 
 
     agent1.state_target[0] = nearest_lane_cntr # agent1_goal[0]
-    agent1.state_target[1] = agent1_goal[1].numpy()
+    # agent1.state_target[1] = agent1_goal[1].numpy()
 
     if(rec_video):
         plt_sv_dir = plt_dir
@@ -139,7 +139,7 @@ if __name__ == "__main__":
         t1 = time.time()
         sampler.plan_traj()
         delta_t = (delta_t + (time.time() - t1))/2
-        print(delta_t)
+        # print(delta_t)
         agent1_goal = sampler.top_trajs[0,-1,:]
         min_d = 999999999
         for d in lane_centers:
@@ -149,14 +149,14 @@ if __name__ == "__main__":
                 nearest_lane_cntr = d
         # print(nearest_lane_cntr)
         agent1.state_target[0] = copy.deepcopy(nearest_lane_cntr)
-        agent1.state_target[1] = copy.deepcopy(agent1_goal[1].numpy())
+        # agent1.state_target[1] = copy.deepcopy(agent1_goal[1].numpy())
         # sampler.mean_action[:,0]
         # sampler.top_trajs[0,:,:] = torch.tensor(agent1.X0.full()).T
         
         t1 = time.time()
         agent1.pred_controls()
-        print(time.time() - t1)
-        print("#################")
+        # print(time.time() - t1)
+        # print("#################")
         
         
         # t_taken = (t_taken + (time()-t1))/2
@@ -210,8 +210,8 @@ if __name__ == "__main__":
             plt.pause(1e-10)
             plt.clf()
 
-        # if(agent1.state_target[1] <=500):
-        #     agent1.state_target[1] = agent1.state_init[1] + 30
+        if(agent1.state_target[1] <=500):
+            agent1.state_target[1] = agent1.state_init[1] + 30
             # sampler.g_state[0] = nearest_lane_cntr 
             # sampler.g_state[1] = sampler.c_state[1] + 30
         for o in agent1.obstacles:
@@ -221,9 +221,10 @@ if __name__ == "__main__":
         # sampler.best_traj = sampler.mean_action
         # print(v.T.shape)
         sampler.mean_action = v.T
+        # sampler.top_trajs[-1,:,:] = torch.tensor(agent1.X0.full()).T
 
     
-    print('avg iteration time: ', t_taken, 'sec') #np.array(times).mean() * 1000, 'ms')
+    # print('avg iteration time: ', t_taken, 'sec') #np.array(times).mean() * 1000, 'ms')
     if(rec_video):
         os.system('ffmpeg -r 10 -f image2 -i '+exp_num+'/tmp/%d.png -s 1000x1000 -pix_fmt yuv420p -y '+exp_num+'/'+exp_name+'.mp4')
 
