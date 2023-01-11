@@ -35,3 +35,7 @@ tmp/
 *.mp4
 *.png
 *.mov
+
+examples/ros2/install
+examples/ros2/build
+examples/ros2/log
