@@ -10,9 +10,6 @@ from numpy import dtype
 from shapely.geometry import Point
 from shapely.affinity import scale, rotate
 
-from behavior_kit.goal_sampler_static_obs import Goal_Sampler
-import torch
-
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist, Vector3
@@ -30,11 +27,7 @@ class NGSIMTest(Node):
 		while not self.cli.wait_for_service(timeout_sec=1.0):
 			self.get_logger().info('service not available, waiting again...')
 		
-		self.dtype = torch.float32
-		self.N = 50
-		self.num_goals = 1
 		self.ngsim_data = genfromtxt('src/simulation_env/i-80-traj-new-400-415.csv', delimiter=',')
-		print(self.ngsim_data.shape)
 		self.ngsim_data[:, 8] = np.round(self.ngsim_data[:, 8], 1)
 		self.time_arr = np.round(np.arange(0.0, 874.0, 0.1), 1)
 		self.loop = 0
@@ -43,55 +36,38 @@ class NGSIMTest(Node):
 		self.time_shift = 140#97#200.0
 		self.num_obs = 10
 
+		# self.num_goals = 6
+		self.num_goals = 1
+
 		self.time_secs = 3.0
 		self.ph = 30
 		self.time_arr = np.linspace(0, self.time_secs, (self.ph + 1))
+		self.nearest_obs_dist = 0.0
 
 		self.xlim = 0.0
 
-		self.obs_list = [[1000, 10000, 0.0, 10000, 10000],
-						[1000, 10000, 0.0, 10000, 10000]
-						]
+		self.obs_list = []
 		self.nearest_obstacles = []
 
 		#self.agent_pose = [0.0, 2.0, 0.0]
-		self.agent_pose = np.array([0.0, 14.0, 0.0])
+		self.agent_pose = [0.0, 14.0, 0.0]
 		#self.agent_pose = [0.0, 18.0, 0.0]
 		self.agent_vel = [15.0, 0.0]
 		self.dt = 0.1
 
-		self.lane_y = [2.0, 6.0, 10.0, 14.0, 18.0, 22.0]
-		self.dist_goal = 80.0
-
-		self.g_region_cntr =  torch.tensor([100, 0, np.deg2rad(0)], dtype=self.dtype)
-		self.sampler = Goal_Sampler(torch.tensor(self.agent_pose, dtype=self.dtype), self.g_region_cntr, 15.0, 0, obstacles=np.array(self.obs_list))
-		self.sampler.dt = 0.1
-		self.sampler.horizon = 30
-		self.sampler.v_ub = 20.0
-		self.sampler.v_lb = 0.0
-		self.sampler.w_ub = 0.5
-		self.sampler.w_lb = -0.5
-		self.sampler.amax = 10.0
-		self.sampler.amin = -10.0
-		self.sampler.jmax = 2.0
-		self.sampler.jmin = -2.0
-		self.sampler.left_lane_bound = 0.0
-		self.sampler.right_lane_bound = 20.0
-		self.sampler.axis = 1
-		self.sampler.num_particles = 200
-		self.sampler.init_w_cov = 0.01
-		self.sampler.step_size_mean = 0.5
-		self.sampler.step_size_cov = 0.5
+		self.lane_y = [6.0, 10.0, 14.0, 18.0]
+		# self.dist_goal = 80.0
+		self.dist_goal = 48.0
+		self.sorted_obs = []
 
 		self.ego_poses = []
-		self.nearest_obs_dist = 0.0
 
-		self.sampler.initialize()
-		#self.sampler.centers = torch.tensor(np.tile(self.agent_pose, (self.N+1,1)), dtype=self.dtype)
-		#self.sampler.plan_traj()
 		self.fig = plt.figure(0)
+		#self.ax1 = self.fig.add_subplot(111, aspect='equal')
+		#self.ax2 = self.fig.add_subplot(212, aspect='equal')
+		#mng = plt.get_current_fig_manager()
+		# mng.full_screen_toggle()
 		self.fig.set_size_inches(20, 10)
-
 		self.req = GetControlsMulti.Request()
 		print("STARTING SIMULATION")
 
@@ -117,17 +93,12 @@ class NGSIMTest(Node):
 		self.num_obs = min(len(idxs), 10)
 
 		obs_list = np.vstack((np.array(x), np.array(y), np.array(psi), np.array(vx), np.array(vy))).T
+		#print(obs_list.shape)
 		dist = np.sqrt((obs_list[:,0] - self.agent_pose[0])**2 + (obs_list[:,1] - self.agent_pose[1])**2)
 		sorted_obs = obs_list[dist.argsort()]
+		self.sorted_obs = sorted_obs
 		dist = ((self.agent_pose[0] - sorted_obs[:,0])**2 + (self.agent_pose[1] - sorted_obs[:,1])**2)**0.5
 		self.nearest_obs_dist = dist[0]
-
-		obs_list = []
-		for i in range(self.num_obs):
-			obs_list.append(np.array([sorted_obs[i][0], sorted_obs[i][1], sorted_obs[i][2]]))
-		
-		self.sampler.c_state = torch.tensor(self.agent_pose, dtype=self.dtype)
-		self.sampler.obstacles = obs_list
 
 		self.req.start.pose.pose.position.x = self.agent_pose[0]
 		self.req.start.pose.pose.position.y = self.agent_pose[1]
@@ -171,53 +142,44 @@ class NGSIMTest(Node):
 		lane_cons, goal = self.get_lane_cons_overtake()
 		self.req.goal = goal
 		self.req.lane_cons = lane_cons
+		#print("Goal = ", goal)
+		#print(self.obs[:,0])
+		#print("Lane Cons == ", self.req.lane_cons)
 		self.goal_p = goal
 		self.future = self.cli.call_async(self.req)
 
 	def get_lane_cons_overtake(self):
 		lane_info = PoseArray()
 		goals = PoseArray()
-		
-		lanes = [2.0, 6.0, 10.0, 14.0, 18.0]
-		#lanes = [1]
-
-		self.sampler.plan_traj()
-		goal = self.sampler.top_trajs[0,-1:,:]#.cpu().detach().numpy()
-		print(goal)
-		dists = np.abs(float(goal[0][1]) - np.array(lanes))
-		min_lane_val = np.argmin(dists)
-
-		for i in range(self.num_goals):
-			goal_pose = Pose()
-			goal_pose.position.x = float(goal[i][0])
-			goal_pose.position.y = np.clip(float(goal[i][1]), 2.0, 18.0)	#lanes[min_lane_val]	#float(goal[i][1])
-			goal_pose.orientation.z = 0.0
-			goals.poses.append(goal_pose)
-		
-
-		"""lanes = [2.0, 6.0, 10.0, 14.0, 18.0, 22.0]
+		# lanes = [6.0, 10.0, 14.0, 18.0]
+		# lanes = [2.0, 6.0, 10.0, 14.0, 18.0]
+		lanes = [10.0]
 		cur_lane = lanes[np.argmin(np.abs(np.array(lanes) - self.agent_pose[1]))]
 		#lanes = [-2.0]
-		if cur_lane == 2.0:
-			lanes = [2.0, 6.0, 10.0, 2.0, 6.0, 10.0]
-		elif cur_lane == 22.0:
-			lanes = [14.0, 18.0, 22.0, 14.0, 18.0, 22.0]
-		else:
-			lanes = [cur_lane - 4.0, cur_lane, cur_lane + 4.0]*2
+		# if cur_lane == 2.0:
+		# 	lanes = [2.0, 6.0, 10.0, 2.0, 6.0, 10.0]
+		# elif cur_lane == 18.0:
+		# 	lanes = [10.0, 14.0, 18.0, 10.0, 14.0, 18.0]
+		# else:
+		# 	lanes = [cur_lane - 4.0, cur_lane, cur_lane + 4.0]*2
 		##lanes = [2.0, 6.0, 10.0, 14.0, 18.0, 22.0]
 		xgoal = [self.dist_goal, self.dist_goal, self.dist_goal, self.dist_goal*3/4, self.dist_goal*3/4, self.dist_goal*3/4] 
 		self.lane_y = lanes
 		print(lanes)
-		lanes = [1]
 		g_dist = 50.0
 		for i in range(len(lanes)):
 			goal_pose = Pose()
-			goal_pose.position.x = self.agent_pose[0] + 80.0#xgoal[i]
-			#goal_pose.position.y = lanes[i]#lanes[0]#random.choice(lanes)
-			goal_pose.position.y = 14.0#lanes[0]#random.choice(lanes)
+			goal_pose.position.x = self.agent_pose[0] + xgoal[i]
+			goal_pose.position.y = lanes[i]#lanes[0]#random.choice(lanes)
 			goal_pose.orientation.z = 0.0
 			goals.poses.append(goal_pose)
-		"""
+		"""#print(goals)
+		goal_pose = Pose()
+		goal_pose.position.x = self.agent_pose[0] + self.dist_goal
+		goal_pose.position.y = lanes[1]#random.choice(lanes)
+		goal_pose.orientation.z = 0.0
+		goals.poses.append(goal_pose)
+		#print(goals)"""
 
 		info = Pose()
 		info.position.x = 0.0
@@ -287,16 +249,22 @@ class NGSIMTest(Node):
 		plt.plot([-20000, 20000], [16, 16], color='black', linewidth=1.0)
 		plt.plot([-20000, 20000], [20, 20], color='black', linewidth=2.0)
 		#plt.plot([-20000, 20000], [24, 24], color='black', linewidth=2.0)
+		#plt.plot([-20000, 20000], [28, 28], color='black', linewidth=2.0)
 	
 	def plot_obstacles(self):
-		for i in range(len(self.obs_list[0])):
-			obs = plt.Circle((self.obs_list[0][i], self.obs_list[1][i]), 1.0, color='r')
+		# for i in range(len(self.obs_list[0])):
+		# 	obs = plt.Circle((self.obs_list[0][i], self.obs_list[1][i]), 1.0, color='r')
+		# 	plt.gca().add_patch(obs)
+		color = 'r'
+		for i in range(len(self.sorted_obs)):
+			alpha = 0.25
+			if i<10:
+				alpha = 1.0
+			obs = plt.Circle((self.sorted_obs[i][0], self.sorted_obs[i][1]), 1.0, color='r', alpha=alpha)
 			plt.gca().add_patch(obs)
 		agent = plt.Circle((self.agent_pose[0], self.agent_pose[1]), 1.0, color='g')
-		# plt.text(self.xlim, 33, 'Vel = %s'%(round(self.agent_vel[0],2)), fontsize=10)
-		# plt.text(self.xlim+40, 33, 'Index = %s'%(self.index), fontsize=10)
-		plt.text(self.agent_pose[0], 33, 'Vel = %s'%(round(self.agent_vel[0],2)), fontsize=10)
-		plt.text(self.agent_pose[0]+40, 33, 'Index = %s'%(self.index), fontsize=10)
+		plt.text(self.xlim, 33, 'Vel = %s'%(round(self.agent_vel[0],2)), fontsize=10)
+		plt.text(self.xlim+40, 33, 'Index = %s'%(self.index), fontsize=10)
 
 		plt.gca().add_patch(agent)
 	
@@ -362,24 +330,18 @@ class NGSIMTest(Node):
 		#print(twist)
 		for i in range(self.num_goals):
 			if i == index:
-				plt.plot(self.path_x[i*(self.ph + 1):i*(self.ph + 1) + (self.ph + 1)], self.path_y[i*(self.ph + 1):i*(self.ph + 1) + (self.ph + 1)], 'y')
 				twist.linear.x = self.path_v[i*(self.ph + 1)+1]
 				twist.angular.z = self.path_w[i*(self.ph + 1)+1]
-			else:
-				plt.plot(self.path_x[i*(self.ph + 1):i*(self.ph + 1) + (self.ph + 1)], self.path_y[i*(self.ph + 1):i*(self.ph + 1) + (self.ph + 1)], 'pink')
+			plt.plot(self.path_x[i*(self.ph + 1):i*(self.ph + 1) + (self.ph + 1)], self.path_y[i*(self.ph + 1):i*(self.ph + 1) + (self.ph + 1)], 'r', alpha=0.2)
+		plt.plot(self.path_x[index*(self.ph + 1):index*(self.ph + 1) + (self.ph + 1)], self.path_y[index*(self.ph + 1):index*(self.ph + 1) + (self.ph + 1)],color='green')
 		print(self.index)
 		if self.agent_pose[0]<10000:
 			self.update_agent(twist)
 		#self.update_obstacles()
 		self.plot_lanes()
 		self.plot_obstacles()
-
 		self.ego_poses.append([self.agent_pose[0], self.agent_pose[1], self.agent_pose[2], self.agent_vel[0], self.agent_vel[1], self.nearest_obs_dist])
-		np.savez("../../results/ngsim/ngsim.npz", np.array(self.ego_poses))
-
-		for j in range(self.sampler.traj_N.shape[0]):
-			plt.plot(self.sampler.traj_N[j,:,0], self.sampler.traj_N[j,:,1], 'r', alpha=0.05)
-		plt.plot(self.sampler.top_trajs[0,:,0], self.sampler.top_trajs[0,:,1], 'green')
+		np.savez("../../results/single_goal_ngsim/single_goal_ngsim.npz", np.array(self.ego_poses))
 		#obs = plt.Circle((self.goal_p.position.x, self.goal_p.position.y), 1.0, color='b')
 		#plt.add_patch(obs)
 		#print(self.goal_p.poses[0].position.y, self.goal_p.poses[1].position.y, len(self.goal_p.poses))
@@ -395,8 +357,7 @@ class NGSIMTest(Node):
 		#plt.xlim(-30+self.agent_pose[0], 100+self.agent_pose[0])
 		if (self.agent_pose[0]-self.xlim)>70.0:
 			self.xlim = self.xlim+100.0
-		# plt.xlim(-30+self.xlim, 100+self.xlim)
-		plt.xlim(-30+self.agent_pose[0], 100+self.agent_pose[0])
+		plt.xlim(-30+self.xlim, 100+self.xlim)
 		#self.ax2.plot(self.time_arr, self.vel)
 		#self.ax2.set_xlim(-30+self.xlim, 100+self.xlim)
 		#self.ax2.set_ylim(0,22)
@@ -407,15 +368,10 @@ class NGSIMTest(Node):
 			self.loop+=1
 		plt.draw()
 		#plt.pause(0.0001)
-		print(self.loop)
-		plt.savefig("../../results/ngsim/images/"+str(self.loop)+".png")
+		plt.savefig("../../results/single_goal_ngsim/images/"+str(self.loop)+".png")
 		plt.pause(0.0001)
-
 		if self.agent_pose[0]>502.0:
 			quit()
-		#plt.pause(1000)
-		#if self.agent_pose[0]>20.0:
-			#quit()
 		#if self.agent_pose[1]>100.0:
 		#	quit()
 	

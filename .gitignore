@@ -32,6 +32,8 @@ build/
 dist/
 tmp/
 
+.vscode/
+
 *.mp4
 *.png
 *.mov
@@ -40,3 +42,5 @@ examples/ros2/install
 examples/ros2/build
 examples/ros2/log
 examples/ros2/src/simulation_env/i-80-traj-new-400-415.csv
+
+results/

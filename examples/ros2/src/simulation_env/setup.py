@@ -21,6 +21,9 @@ setup(
     entry_points={
         'console_scripts': [
             'ngsim_env = simulation_env.ngsim_env:main',
+            'combined_sim_new = simulation_env.combined_sim_new:main',
+            'ngsim_acado = simulation_env.ngsim_acado:main',
+            'combined_sim_acado = simulation_env.combined_sim_acado:main',
         ],
     },
 )

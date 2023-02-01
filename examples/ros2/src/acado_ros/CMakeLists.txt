@@ -82,7 +82,12 @@ add_executable(combined_ngsim src/combined_ngsim.cpp)
 target_link_libraries(combined_ngsim eigen-quadprog ${ACADO_ENV_SHARED_LIBRARIES} mpc_solver)
 ament_target_dependencies(combined_ngsim rclcpp std_msgs nav_msgs acado_msgs ${ACADO_ENV_SHARED_LIBRARIES})
 
+add_executable(combined_mpc_multi src/combined_mpc_multi.cpp)
+target_link_libraries(combined_mpc_multi eigen-quadprog ${ACADO_ENV_SHARED_LIBRARIES} mpc_solver)
+ament_target_dependencies(combined_mpc_multi rclcpp std_msgs nav_msgs acado_msgs ${ACADO_ENV_SHARED_LIBRARIES})
+
 
 install(TARGETS
   combined_ngsim
+  combined_mpc_multi
   DESTINATION lib/${PROJECT_NAME})
