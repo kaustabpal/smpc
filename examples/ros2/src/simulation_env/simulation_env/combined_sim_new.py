@@ -832,18 +832,18 @@ class CombinedEnv(Node):
 		if self.agent_pose[0]<1000:
 			self.loop+=1
 		print([self.agent_pose_frenet[0], self.agent_pose_frenet[1], self.agent_pose_frenet[2], fv, fw])
-		if self.agent_pose[0]<160:
-			self.ego_poses_straight.append([self.agent_pose_frenet[0], self.agent_pose_frenet[1], self.agent_pose_frenet[2], fv, fw, self.nearest_obs_dist])
-			np.savez("../../results/combined_env_straight/combined_env_straight.npz", np.array(self.ego_poses_straight))
-			plt.savefig("../../results/combined_env_straight/images/combined_env_straight_"+str(self.loop)+".png")
-		elif self.agent_pose[0]>=160 and self.agent_pose[0]<244:
-			self.ego_poses_intersection.append([self.agent_pose_frenet[0], self.agent_pose_frenet[1], self.agent_pose_frenet[2], fv, fw, self.nearest_obs_dist])
-			np.savez("../../results/combined_env_intersection/combined_env_intersection.npz", np.array(self.ego_poses_intersection))
-			plt.savefig("../../results/combined_env_intersection/images/combined_env_intersection_"+str(self.loop)+".png")
-		elif self.agent_pose[0]>=244 and self.agent_pose[0]<244 + self.radius*np.pi:
-			self.ego_poses_curved.append([self.agent_pose_frenet[0], self.agent_pose_frenet[1], self.agent_pose_frenet[2], fv, fw, self.nearest_obs_dist])
-			np.savez("../../results/combined_env_curved/combined_env_curved.npz", np.array(self.ego_poses_curved))
-			plt.savefig("../../results/combined_env_curved/images/combined_env_curved_"+str(self.loop)+".png")
+		# if self.agent_pose[0]<160:
+		# 	self.ego_poses_straight.append([self.agent_pose_frenet[0], self.agent_pose_frenet[1], self.agent_pose_frenet[2], fv, fw, self.nearest_obs_dist])
+		# 	np.savez("../../results/combined_env_straight/combined_env_straight.npz", np.array(self.ego_poses_straight))
+		# 	plt.savefig("../../results/combined_env_straight/images/combined_env_straight_"+str(self.loop)+".png")
+		# elif self.agent_pose[0]>=160 and self.agent_pose[0]<244:
+		# 	self.ego_poses_intersection.append([self.agent_pose_frenet[0], self.agent_pose_frenet[1], self.agent_pose_frenet[2], fv, fw, self.nearest_obs_dist])
+		# 	np.savez("../../results/combined_env_intersection/combined_env_intersection.npz", np.array(self.ego_poses_intersection))
+		# 	plt.savefig("../../results/combined_env_intersection/images/combined_env_intersection_"+str(self.loop)+".png")
+		# elif self.agent_pose[0]>=244 and self.agent_pose[0]<244 + self.radius*np.pi:
+		# 	self.ego_poses_curved.append([self.agent_pose_frenet[0], self.agent_pose_frenet[1], self.agent_pose_frenet[2], fv, fw, self.nearest_obs_dist])
+		# 	np.savez("../../results/combined_env_curved/combined_env_curved.npz", np.array(self.ego_poses_curved))
+		# 	plt.savefig("../../results/combined_env_curved/images/combined_env_curved_"+str(self.loop)+".png")
 		plt.pause(0.01)
 
 		if self.agent_pose[0]>245 + self.radius*np.pi:

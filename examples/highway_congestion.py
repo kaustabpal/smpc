@@ -14,7 +14,7 @@ np.set_printoptions(suppress=True)
 
 if __name__ == "__main__":
     dtype = torch.float32
-    rec_video = False
+    rec_video = True
     
     exp_name = "dynamic_scene"
     repo_path = os.path.abspath(os.path.join(os.path.dirname(__file__),".."))
@@ -26,7 +26,7 @@ if __name__ == "__main__":
     timeout = 30
     times = np.array([[0]])
 
-    agent_v_ub = 20
+    agent_v_ub = 15
     agent_v_lb = 0
     # agent_w_ub = 0.1
     # agent_w_lb = -0.1
@@ -47,31 +47,35 @@ if __name__ == "__main__":
     y_u_lim = 40
     update_y = 30
 
-    agent1 = Agent(1, [3,0,np.deg2rad(90)],[0,0+30,np.deg2rad(90)], 30)
+    agent1 = Agent(1, [-3,0,np.deg2rad(90)],[0,0+30,np.deg2rad(90)], 30)
     draw_list.append(agent1)
 
     obstacles = []
     oy = 0
     obs_x = [-3,0,3]
     obs_y = [15,20,30]
-    ox = [3,-3,0,3,0,0,-3,-3,0,3]
-    oy = [18,32,50,63,78,89,105,115,109,129]
-    for i in range(10):
+    # ox = [3,-3,0,3,0,0,-3,-3,0,3]
+    # oy = [18,32,50,63,78,89,105,115,109,129]
+    ox = [-3, 0, 3, -3, 0, 3, -3, 0, 3]
+    # oxg = [3, 0, -3, -3, 0, 3, -3, 0, 3]
+    oy = [10, -5, 15, 30, 30, 38, 46, 70, -10]
+    for i in range(9):
         obstacles.append(Agent(i+2,[ox[i],oy[i],np.deg2rad(90)],[ox[i],oy[i]+30,np.deg2rad(90)], 30))
 
     agent1.v_ub = agent_v_ub
     agent1.v_lb = agent_v_lb 
     # agent1.w_lb = agent_w_lb
     # agent1.w_ub = agent_w_ub
-    agent1.vl = ca.DM(12)
+    agent1.vl = ca.DM(8)
 
     o_v_ub = [13,14,13,12,11,13,13,13,13,12]
+    o_v = [8, 9, 10, 8,5, 9,5, 10.5, 9, 10, 11]
     for i in range(len(obstacles)):
-        obstacles[i].v_ub = np.random.randint(11,15)
+        obstacles[i].v_ub = np.random.randint(8,12)
         obstacles[i].v_lb = 0
         # obstacles[i].w_ub = 0
         # obstacles[i].w_lb = 0
-        obstacles[i].vl = ca.DM(np.random.randint(10,13)) 
+        obstacles[i].vl = ca.DM(o_v[i])  #ca.DM(np.random.randint(7,11)) 
         agent1.obstacles.append(obstacles[i])
         draw_list.append(obstacles[i])
 
@@ -98,6 +102,7 @@ if __name__ == "__main__":
             obs_pos.append(np.array(o.state_init.full()).reshape(3))
             
     sampler = Goal_Sampler(agent1.i_state, g_region_cntr, agent1.vl.full()[0][0], 0, obstacles=obs_pos)
+    sampler.initialize()
 
     agent1.pred_controls()
     sampler.centers = torch.tensor(agent1.X0.full()).T[:,:2]
@@ -127,6 +132,7 @@ if __name__ == "__main__":
     # x_lane = -6
     t_taken = 0
     delta_t = 0
+    loop = 0
     while( (ca.norm_2(agent1.state_init - agent1.state_target)>=1) and timeout >0):
         timeout = timeout - agent1.dt
         # t1 = time()
@@ -135,6 +141,9 @@ if __name__ == "__main__":
             dist = np.sqrt((agent1.state_init[1]-o.state_init[1])**2 + (agent1.state_init[0]-o.state_init[0])**2)
             if(dist <=agent1.sensor_radius):
                 obs_pos.append(np.array(o.state_init.full()).reshape(3))
+        dist = np.sqrt((agent1.state_init[1]-agent1.obstacles[0].state_init[1])**2 + (agent1.state_init[0]-agent1.obstacles[0].state_init[0])**2)
+        if dist<5.5:
+            agent1.obstacles[0].state_target[0] = 30.0
         sampler.obstacles = obs_pos
         t1 = time.time()
         sampler.plan_traj()
@@ -198,16 +207,17 @@ if __name__ == "__main__":
         if(update_y>= 30):
             update_y = 0
             y_l_lim = agent1.i_state[1] - 10
-            y_u_lim = agent1.i_state[1] + 40
+            y_u_lim = agent1.i_state[1] + 50
         plt.xlim([-25,25])
         plt.ylim([y_l_lim, y_u_lim])
 
         if(rec_video):
             plt.savefig(plt_sv_dir+str(p)+".png",dpi=500, bbox_inches='tight')
             p = p+1
-            plt.clf()
-        else:
-            plt.pause(1e-10)
+            # plt.clf()
+            # else:
+            plt.pause(0.001)
+            # plt.show()
             plt.clf()
 
         if(agent1.state_target[1] <=500):
@@ -221,6 +231,7 @@ if __name__ == "__main__":
         # sampler.best_traj = sampler.mean_action
         # print(v.T.shape)
         sampler.mean_action = v.T
+        loop = loop + 1
         # sampler.top_trajs[-1,:,:] = torch.tensor(agent1.X0.full()).T
 
     

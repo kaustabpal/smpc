@@ -285,8 +285,8 @@ class NGSIMTest(Node):
 		plt.plot([-20000, 20000], [8, 8], color='black', linewidth=1.0)
 		plt.plot([-20000, 20000], [12, 12], color='black', linewidth=1.0)
 		plt.plot([-20000, 20000], [16, 16], color='black', linewidth=1.0)
-		plt.plot([-20000, 20000], [20, 20], color='black', linewidth=2.0)
-		#plt.plot([-20000, 20000], [24, 24], color='black', linewidth=2.0)
+		plt.plot([-20000, 20000], [20, 20], color='black', linewidth=1.0)
+		plt.plot([-20000, 20000], [24, 24], color='black', linewidth=2.0)
 	
 	def plot_obstacles(self):
 		for i in range(len(self.obs_list[0])):
@@ -395,8 +395,9 @@ class NGSIMTest(Node):
 		#plt.xlim(-30+self.agent_pose[0], 100+self.agent_pose[0])
 		if (self.agent_pose[0]-self.xlim)>70.0:
 			self.xlim = self.xlim+100.0
-		# plt.xlim(-30+self.xlim, 100+self.xlim)
-		plt.xlim(-30+self.agent_pose[0], 100+self.agent_pose[0])
+		plt.xlim(-30+self.xlim, 100+self.xlim)
+		# plt.xlim(-30+self.agent_pose[0], 100+self.agent_pose[0])
+		# plt.xlim(75, 200)
 		#self.ax2.plot(self.time_arr, self.vel)
 		#self.ax2.set_xlim(-30+self.xlim, 100+self.xlim)
 		#self.ax2.set_ylim(0,22)
@@ -408,7 +409,8 @@ class NGSIMTest(Node):
 		plt.draw()
 		#plt.pause(0.0001)
 		print(self.loop)
-		plt.savefig("../../results/ngsim/images/"+str(self.loop)+".png")
+		# plt.axis('equal')
+		# plt.savefig("../../results/ngsim/images/"+str(self.loop)+".png")
 		plt.pause(0.0001)
 
 		if self.agent_pose[0]>502.0:
