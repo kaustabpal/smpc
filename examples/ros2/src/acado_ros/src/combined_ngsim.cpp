@@ -3,6 +3,8 @@
 #include <fstream>
 #include <iostream>
 #include <cstdlib>
+#include <cmath>
+#include "yaml-cpp/yaml.h"
 
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/string.hpp"
@@ -80,6 +82,8 @@ class GoalReach : public rclcpp::Node
 
 GoalReach::GoalReach(): Node("combined_ngsim"), count_(0)
 {
+    YAML::Node map = YAML::LoadFile("src/acado_ros/config/config.yaml");
+    std::string setting = map["setting"].as<std::string>();
     service = this->create_service<acado_msgs::srv::GetControlsMulti>("/get_vel", std::bind(&GoalReach::get_vel_cb, this, _1, _2));
     got_odom = false;
     got_pa = false;
@@ -93,7 +97,7 @@ GoalReach::GoalReach(): Node("combined_ngsim"), count_(0)
     time = 0.0;
     mpc_iter = 0;
 
-    num_goals = 1;
+    num_goals = map["configuration"][setting]["num_goals"].as<int>();;
 
     xg.push_back(0);
     xg.push_back(0);
@@ -313,44 +317,40 @@ GoalReach::GoalReach(): Node("combined_ngsim"), count_(0)
 
     for (int i = 0; i < N; i++)
     {
-        acadoVariables.W[NY*NY*i + (NY+1)*0] = 0.0;     //x
-        acadoVariables.W[NY*NY*i + (NY+1)*1] = 0.0;     //y
+        acadoVariables.W[NY*NY*i + (NY+1)*0] = map["configuration"][setting]["weights"]["trajectory_x_cost"].as<double>();     //x
+        acadoVariables.W[NY*NY*i + (NY+1)*1] = map["configuration"][setting]["weights"]["trajectory_y_cost"].as<double>();     //y
         acadoVariables.W[NY*NY*i + (NY+1)*2] = 0;          //v
-        //acadoVariables.W[NY*NY*i + (NY+1)*2] = 500;  # Lane change
-        //acadoVariables.W[NY*NY*i + (NY+1)*3] = 500;
-        acadoVariables.W[NY*NY*i + (NY+1)*3] = 1e2;        //a
-        acadoVariables.W[NY*NY*i + (NY+1)*4] = 1e3;        //j
-        //acadoVariables.W[NY*NY*i + (NY+1)*5] = 0.0;         //lane_dist
-        acadoVariables.W[NY*NY*i + (NY+1)*5] = 5*1e3;
-        acadoVariables.W[NY*NY*i + (NY+1)*6] = 5*1e3;
-        acadoVariables.W[NY*NY*i + (NY+1)*7] = 5*1e3;
-        acadoVariables.W[NY*NY*i + (NY+1)*8] = 5*1e3;
-        acadoVariables.W[NY*NY*i + (NY+1)*9] = 5*1e3;
-        acadoVariables.W[NY*NY*i + (NY+1)*10] = 5*1e3;
-        acadoVariables.W[NY*NY*i + (NY+1)*11] = 5*1e3;
-        acadoVariables.W[NY*NY*i + (NY+1)*12] = 5*1e3;
-        acadoVariables.W[NY*NY*i + (NY+1)*13] = 5*1e3;
-        acadoVariables.W[NY*NY*i + (NY+1)*14] = 5*1e3;
-        acadoVariables.W[NY*NY*i + (NY+1)*15] = 0.0;
-        acadoVariables.W[NY*NY*i + (NY+1)*16] = 0.0;
+        acadoVariables.W[NY*NY*i + (NY+1)*3] = map["configuration"][setting]["weights"]["linear_acc_cost"].as<double>();        //a
+        acadoVariables.W[NY*NY*i + (NY+1)*4] = map["configuration"][setting]["weights"]["angular_acc_cost"].as<double>();        //j
+        acadoVariables.W[NY*NY*i + (NY+1)*5] = map["configuration"][setting]["weights"]["obstacle_cost"].as<double>();
+        acadoVariables.W[NY*NY*i + (NY+1)*6] = map["configuration"][setting]["weights"]["obstacle_cost"].as<double>();
+        acadoVariables.W[NY*NY*i + (NY+1)*7] = map["configuration"][setting]["weights"]["obstacle_cost"].as<double>();
+        acadoVariables.W[NY*NY*i + (NY+1)*8] = map["configuration"][setting]["weights"]["obstacle_cost"].as<double>();
+        acadoVariables.W[NY*NY*i + (NY+1)*9] = map["configuration"][setting]["weights"]["obstacle_cost"].as<double>();
+        acadoVariables.W[NY*NY*i + (NY+1)*10] = map["configuration"][setting]["weights"]["obstacle_cost"].as<double>();
+        acadoVariables.W[NY*NY*i + (NY+1)*11] = map["configuration"][setting]["weights"]["obstacle_cost"].as<double>();
+        acadoVariables.W[NY*NY*i + (NY+1)*12] = map["configuration"][setting]["weights"]["obstacle_cost"].as<double>();
+        acadoVariables.W[NY*NY*i + (NY+1)*13] = map["configuration"][setting]["weights"]["obstacle_cost"].as<double>();
+        acadoVariables.W[NY*NY*i + (NY+1)*14] = map["configuration"][setting]["weights"]["obstacle_cost"].as<double>();
+        acadoVariables.W[NY*NY*i + (NY+1)*15] = map["configuration"][setting]["weights"]["straight_lane_cost"].as<double>();
+        acadoVariables.W[NY*NY*i + (NY+1)*16] = map["configuration"][setting]["weights"]["curved_lane_cost"].as<double>();
     }
-
-    acadoVariables.WN[(NYN+1)*0] = 1*1e9;
-	acadoVariables.WN[(NYN+1)*1] = 1*1e9;
-	acadoVariables.WN[(NYN+1)*2] = 1*1e10;
+    acadoVariables.WN[(NYN+1)*0] = map["configuration"][setting]["weights"]["terminal_x_cost"].as<double>();
+	acadoVariables.WN[(NYN+1)*1] = map["configuration"][setting]["weights"]["terminal_y_cost"].as<double>();
+	acadoVariables.WN[(NYN+1)*2] = map["configuration"][setting]["weights"]["terminal_theta_cost"].as<double>();
 
 
     for (int i = 0; i < N; i++)
     {
         //acadoVariables.lbAValues[i*4+0] = -1e12;    //x
         //acadoVariables.lbAValues[i*4+1] = 5.1;     //y
-        acadoVariables.lbAValues[i*2+0] = 0;       //v
-        acadoVariables.lbAValues[i*2+1] = -0.5;       //w
+        acadoVariables.lbAValues[i*2+0] = map["configuration"][setting]["bounds"]["lower_linear_velocity_bound"].as<double>();       //v
+        acadoVariables.lbAValues[i*2+1] = map["configuration"][setting]["bounds"]["lower_angular_velocity_bound"].as<double>();       //w
 
         //acadoVariables.ubAValues[i*4+0] = 1e12;     //x
         //acadoVariables.ubAValues[i*4+1] = 14.9;     //y
-        acadoVariables.ubAValues[i*2+0] = 20;       //v
-        acadoVariables.ubAValues[i*2+1] = 0.5;        //w
+        acadoVariables.ubAValues[i*2+0] = map["configuration"][setting]["bounds"]["upper_linear_velocity_bound"].as<double>();       //v
+        acadoVariables.ubAValues[i*2+1] = map["configuration"][setting]["bounds"]["upper_angular_velocity_bound"].as<double>();        //w
     }
 
     for (int i = 0; i < N; i++)
@@ -373,11 +373,11 @@ GoalReach::GoalReach(): Node("combined_ngsim"), count_(0)
 
     for (int i = 0; i < N; i++)
     {
-        acadoVariables.lbValues[i*2+0] = -10;
-        acadoVariables.lbValues[i*2+1] = -2;
+        acadoVariables.lbValues[i*2+0] = map["configuration"][setting]["bounds"]["lower_linear_acceleration_bound"].as<double>();
+        acadoVariables.lbValues[i*2+1] = map["configuration"][setting]["bounds"]["lower_angular_acceleration_bound"].as<double>();
 
-        acadoVariables.ubValues[i*2+0] = 10;
-        acadoVariables.ubValues[i*2+1] = 2;
+        acadoVariables.ubValues[i*2+0] = map["configuration"][setting]["bounds"]["upper_linear_acceleration_bound"].as<double>();
+        acadoVariables.ubValues[i*2+1] = map["configuration"][setting]["bounds"]["upper_angular_acceleration_bound"].as<double>();
     }
 
 
@@ -507,6 +507,8 @@ void GoalReach::get_vel_cb(const std::shared_ptr<acado_msgs::srv::GetControlsMul
             acadoVariables.od[i * NOD + 18] = obstacles.odom[9].pose.pose.position.x + obstacles.odom[9].twist.twist.linear.x*0.1*i;
             acadoVariables.od[i * NOD + 19] = obstacles.odom[9].pose.pose.position.y + obstacles.odom[9].twist.twist.linear.y*0.1*i;
 
+            // std::cout<<"("<<acadoVariables.od[i * NOD + 0]<<","<<acadoVariables.od[i * NOD + 1]<<")"<<"("<<acadoVariables.od[i * NOD + 2]<<","<<acadoVariables.od[i * NOD + 3]<<")"<<"("<<acadoVariables.od[i * NOD + 4]<<","<<acadoVariables.od[i * NOD + 5]<<")"<<"("<<acadoVariables.od[i * NOD + 6]<<","<<acadoVariables.od[i * NOD + 7]<<")"<<"("<<acadoVariables.od[i * NOD + 8]<<","<<acadoVariables.od[i * NOD + 9]<<")"<<"("<<acadoVariables.od[i * NOD + 10]<<","<<acadoVariables.od[i * NOD + 11]<<")"<<"("<<acadoVariables.od[i * NOD + 12]<<","<<acadoVariables.od[i * NOD + 13]<<")"<<"("<<acadoVariables.od[i * NOD + 14]<<","<<acadoVariables.od[i * NOD + 15]<<")"<<"("<<acadoVariables.od[i * NOD + 16]<<","<<acadoVariables.od[i * NOD + 17]<<")"<<"("<<acadoVariables.od[i * NOD + 18]<<","<<acadoVariables.od[i * NOD + 19]<<")"<<"\n";
+
             if(i<N)
             {
                 acadoVariables.lbValues[i*2+1] = lane_cons.poses[4].position.x;
@@ -556,6 +558,7 @@ void GoalReach::get_vel_cb(const std::shared_ptr<acado_msgs::srv::GetControlsMul
             }
                 
         }
+        // exit(0);
         acado_tic( &t );
         for(iter = 0; iter < ns[goal_id]; ++iter)
         {

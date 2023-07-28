@@ -2,6 +2,7 @@ import numpy as np
 import random
 import matplotlib.pylab as plt
 import enum
+import time
 
 import rclpy
 from rclpy.node import Node
@@ -70,7 +71,7 @@ class CombinedEnv(Node):
 												[202.0, 68.0, 90*2*np.pi/360, 6.9, 0.0, 7.0, 0],
 												#######################
 												[206.0, -37.0, 90*2*np.pi/360, 8.8, 0.0, 8.0, 0],
-												[206.0, 18.0, 90*2*np.pi/360, 7.9, 0.0, 8.0, 0],
+												#[206.0, 18.0, 90*2*np.pi/360, 7.9, 0.0, 8.0, 0],
 												[206.0, 53.0, 90*2*np.pi/360, 8.3, 0.0, 8.0, 0],
 												#######################
 												[210.0, -13.0, 90*2*np.pi/360, 9.3, 0.0, 9.0, 0],
@@ -83,7 +84,7 @@ class CombinedEnv(Node):
 												[222.0, 80.0, 270*2*np.pi/360, 8.9, 0.0, 9.0, 0],
 												#######################
 												[218.0, -10.0, 270*2*np.pi/360, 8.8, 0.0, 8.0, 0],
-												[218.0, 20.0, 270*2*np.pi/360, 8.9, 0.0, 8.0, 0],
+												#[218.0, 20.0, 270*2*np.pi/360, 8.9, 0.0, 8.0, 0],
 												[218.0, 60.0, 270*2*np.pi/360, 9.3, 0.0, 8.0, 0],
 												######################
 												[214.0, -40.0, 270*2*np.pi/360, 6.8, 0.0, 7.0, 0],
@@ -92,10 +93,12 @@ class CombinedEnv(Node):
 												])
 						
 		self.obstacles_right = np.array([[-20.0, 10.0, 0.0*2*np.pi/360, 7.8, 0.0, 8.0, 102.0],
+				   						#[5.0, 10.0, 0.0*2*np.pi/360, 8.3, 0.0, 8.0, 102.0],
 										[35.0, 10.0, 0.0*2*np.pi/360, 8.3, 0.0, 8.0, 102.0],
 										[80.0, 10.0, 0.0*2*np.pi/360, 7.9, 0.0, 8.0, 102.0],
 										#######################
 										[-5.0, 6.0, 0.0*2*np.pi/360, 9.8, 0.0, 10.0, 106.0],
+										#[15.0, 6.0, 0.0*2*np.pi/360, 8.3, 0.0, 8.0, 102.0],
 										[45.0, 6.0, 0.0*2*np.pi/360, 9.9, 0.0, 10.0, 106.0],
 										[80.0, 6.0, 0.0*2*np.pi/360, 10.3, 0.0, 10.0, 106.0],
 										#######################
@@ -144,7 +147,8 @@ class CombinedEnv(Node):
 		self.sampler.init_w_cov = 0.1
 		self.sampler.step_size_mean = 0.5
 		self.sampler.step_size_cov = 0.5
-		self.sampler.update_iter = 3
+		self.sampler.update_iter = 1
+		self.total_time = 0
 
 		self.ego_poses_straight = []
 		self.ego_poses_intersection = []
@@ -213,9 +217,13 @@ class CombinedEnv(Node):
 		lane_info = PoseArray()
 		goals = PoseArray()
 		lanes = [10.0, 6.0, 2.0, -2.0, -6.0, -10.0]
+		start = time.time()
 		self.sampler.plan_traj()
+		end = time.time()
+		plan_traj_time = end - start
+		self.total_time += plan_traj_time
 		goal = self.sampler.top_trajs[0,-1:,:]#.cpu().detach().numpy()
-		print(goal)
+		print("Avg. Time = ", self.total_time/(self.loop+1))
 		dists = np.abs(float(goal[0][1]) - np.array(lanes))
 		min_lane_val = np.argmin(dists)
 
@@ -681,10 +689,16 @@ class CombinedEnv(Node):
 
 	def plot_agents(self):
 
+		agent = [self.agent_pose[0], self.agent_pose[1], self.agent_pose[2]]
+		agent_env_x, agent_env_y, agent_env_theta = self.centerline_to_env(agent)
+
 		##################################
 
 		for i in self.obstacles_left:
 			env_x, env_y, env_theta = self.centerline_to_env(i)
+			if (agent_env_x - env_x)**2 + (agent_env_y - env_y)**2 < 4.41:
+				print("COLLISION!!!!!!!!!!")
+				quit()
 			obs = plt.Circle((env_x, env_y), 1.0, color='r')
 			plt.gca().add_patch(obs)
 
@@ -692,28 +706,35 @@ class CombinedEnv(Node):
 
 		for i in self.obstacles_right:
 			env_x, env_y, env_theta = self.centerline_to_env(i)
+			if (agent_env_x - env_x)**2 + (agent_env_y - env_y)**2 < 4.41:
+				print("COLLISION!!!!!!!!!!")
+				quit()
 			obs = plt.Circle((env_x, env_y), 1.0, color='r')
 			plt.gca().add_patch(obs)
 
 		##################################
 
 		for i in self.obstacles_intersection_south:
+			if (agent_env_x -i[0])**2 + (agent_env_y - i[1])**2 < 4.41:
+				print("COLLISION!!!!!!!!!!")
+				quit()
 			obs = plt.Circle((i[0], i[1]), 1.0, color='r')
 			plt.gca().add_patch(obs)
 
 		##################################
 
 		for i in self.obstacles_intersection_north:
+			if (agent_env_x -i[0])**2 + (agent_env_y - i[1])**2 < 4.41:
+				print("COLLISION!!!!!!!!!!")
+				quit()
 			obs = plt.Circle((i[0], i[1]), 1.0, color='r')
 			plt.gca().add_patch(obs)
 		
 		##################################
 
-		agent = [self.agent_pose[0], self.agent_pose[1], self.agent_pose[2]]
-		env_x, env_y, env_theta = self.centerline_to_env(agent)
-		self.agent_pose_frenet = [env_x, env_y, env_theta]
-		agent = plt.Circle((env_x, env_y), 1.0, color='g')
-		plt.text(env_x, env_y+30, 'Vel = %s'%(round(self.agent_vel[0],2)), fontsize=10)
+		self.agent_pose_frenet = [agent_env_x, agent_env_y, agent_env_theta]
+		agent = plt.Circle((agent_env_x, agent_env_y), 1.0, color='g')
+		plt.text(agent_env_x, agent_env_y+30, 'Vel = %s'%(round(self.agent_vel[0],2)), fontsize=10)
 		plt.gca().add_patch(agent)
 	
 	def plot(self, twist, path, kkt):

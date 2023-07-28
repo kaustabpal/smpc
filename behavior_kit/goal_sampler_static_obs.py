@@ -234,10 +234,12 @@ class Goal_Sampler:
             
             # Obstacle avoidance
             t1 = time.time()
-            for o in self.obstacles:
-                dist = torch.linalg.norm(self.traj_N[i,:,:2]-torch.from_numpy(o)[:2]*torch.ones(self.horizon+1,2),axis = 1)
-                self.collision_cost_N[i] += torch.sum(500*(dist<=2).type(torch.float32))
-                # print(self.collision_cost_N[i])
+            dist = torch.cdist(self.traj_N[i,:,:2], torch.tensor(self.obstacles, dtype=torch.float32)[:, :2], p=2)
+            self.collision_cost_N[i] = torch.sum(500*(dist<=2))
+            # for o in self.obstacles:
+            #     dist = torch.linalg.norm(self.traj_N[i,:,:2]-torch.from_numpy(o)[:2]*torch.ones(self.horizon+1,2),axis = 1)
+            #     self.collision_cost_N[i] += torch.sum(500*(dist<=2).type(torch.float32))
+            #     # print(self.collision_cost_N[i])
             t_4.append(time.time()-t1)
             
             # free balls constraints

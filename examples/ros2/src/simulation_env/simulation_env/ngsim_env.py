@@ -2,7 +2,7 @@ from math import radians
 import random
 import numpy as np
 from numpy import genfromtxt
-from time import time
+import time
 import matplotlib.pyplot as plt
 
 from matplotlib.patches import Ellipse, Rectangle
@@ -63,6 +63,8 @@ class NGSIMTest(Node):
 		self.lane_y = [2.0, 6.0, 10.0, 14.0, 18.0, 22.0]
 		self.dist_goal = 80.0
 
+		self.total_time = 0.0
+
 		self.g_region_cntr =  torch.tensor([100, 0, np.deg2rad(0)], dtype=self.dtype)
 		self.sampler = Goal_Sampler(torch.tensor(self.agent_pose, dtype=self.dtype), self.g_region_cntr, 15.0, 0, obstacles=np.array(self.obs_list))
 		self.sampler.dt = 0.1
@@ -78,7 +80,7 @@ class NGSIMTest(Node):
 		self.sampler.left_lane_bound = 0.0
 		self.sampler.right_lane_bound = 20.0
 		self.sampler.axis = 1
-		self.sampler.num_particles = 200
+		self.sampler.num_particles = 100
 		self.sampler.init_w_cov = 0.01
 		self.sampler.step_size_mean = 0.5
 		self.sampler.step_size_cov = 0.5
@@ -180,10 +182,13 @@ class NGSIMTest(Node):
 		
 		lanes = [2.0, 6.0, 10.0, 14.0, 18.0]
 		#lanes = [1]
-
+		start = time.time()
 		self.sampler.plan_traj()
+		end = time.time()
+		plan_traj_time = end - start
+		self.total_time += plan_traj_time
 		goal = self.sampler.top_trajs[0,-1:,:]#.cpu().detach().numpy()
-		print(goal)
+		print("Avg. Time = ", self.total_time/(self.loop+1), plan_traj_time)
 		dists = np.abs(float(goal[0][1]) - np.array(lanes))
 		min_lane_val = np.argmin(dists)
 
@@ -291,6 +296,9 @@ class NGSIMTest(Node):
 	def plot_obstacles(self):
 		for i in range(len(self.obs_list[0])):
 			obs = plt.Circle((self.obs_list[0][i], self.obs_list[1][i]), 1.0, color='r')
+			if ((self.agent_pose[0] - self.obs_list[0][i])**2 + (self.agent_pose[1] - self.obs_list[1][i])**2)**0.5 < 2.5:
+				print("COLLISION!!!!!!!!!!")
+				quit()
 			plt.gca().add_patch(obs)
 		agent = plt.Circle((self.agent_pose[0], self.agent_pose[1]), 1.0, color='g')
 		# plt.text(self.xlim, 33, 'Vel = %s'%(round(self.agent_vel[0],2)), fontsize=10)
@@ -375,7 +383,7 @@ class NGSIMTest(Node):
 		self.plot_obstacles()
 
 		self.ego_poses.append([self.agent_pose[0], self.agent_pose[1], self.agent_pose[2], self.agent_vel[0], self.agent_vel[1], self.nearest_obs_dist])
-		np.savez("../../results/ngsim/ngsim.npz", np.array(self.ego_poses))
+		# np.savez("../../results/ngsim/ngsim.npz", np.array(self.ego_poses))
 
 		for j in range(self.sampler.traj_N.shape[0]):
 			plt.plot(self.sampler.traj_N[j,:,0], self.sampler.traj_N[j,:,1], 'r', alpha=0.05)

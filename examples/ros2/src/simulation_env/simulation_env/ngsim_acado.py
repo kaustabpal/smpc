@@ -261,6 +261,9 @@ class NGSIMTest(Node):
 			if i<10:
 				alpha = 1.0
 			obs = plt.Circle((self.sorted_obs[i][0], self.sorted_obs[i][1]), 1.0, color='r', alpha=alpha)
+			if (self.agent_pose[0] - self.obs_list[0][i])**2 + (self.agent_pose[1] - self.obs_list[1][i])**2 < 4.84:
+				print("COLLISION!!!!!!!!!!")
+				quit()
 			plt.gca().add_patch(obs)
 		agent = plt.Circle((self.agent_pose[0], self.agent_pose[1]), 1.0, color='g')
 		plt.text(self.xlim, 33, 'Vel = %s'%(round(self.agent_vel[0],2)), fontsize=10)
@@ -341,7 +344,7 @@ class NGSIMTest(Node):
 		self.plot_lanes()
 		self.plot_obstacles()
 		self.ego_poses.append([self.agent_pose[0], self.agent_pose[1], self.agent_pose[2], self.agent_vel[0], self.agent_vel[1], self.nearest_obs_dist])
-		np.savez("../../results/single_goal_ngsim/single_goal_ngsim.npz", np.array(self.ego_poses))
+		# np.savez("../../results/single_goal_ngsim/single_goal_ngsim.npz", np.array(self.ego_poses))
 		#obs = plt.Circle((self.goal_p.position.x, self.goal_p.position.y), 1.0, color='b')
 		#plt.add_patch(obs)
 		#print(self.goal_p.poses[0].position.y, self.goal_p.poses[1].position.y, len(self.goal_p.poses))
@@ -368,7 +371,7 @@ class NGSIMTest(Node):
 			self.loop+=1
 		plt.draw()
 		#plt.pause(0.0001)
-		plt.savefig("../../results/single_goal_ngsim/images/"+str(self.loop)+".png")
+		# plt.savefig("../../results/single_goal_ngsim/images/"+str(self.loop)+".png")
 		plt.pause(0.0001)
 		if self.agent_pose[0]>502.0:
 			quit()

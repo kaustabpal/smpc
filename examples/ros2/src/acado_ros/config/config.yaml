@@ -1,0 +1,123 @@
+# Parameter Description
+
+# setting:  This contains the type of environment(NGSIM/Combined) to simulate in and the type of planner(SMPC+Acado/Acado) to use
+
+# BOUNDS[HARD COSTRAINTS]
+# lower_linear_velocity_bound: Lower bound for the velocity of the vehicle. This will ensure that the velocity does not fall below this value.
+# upper_linear_velocity_bound: Upper bound for the velocity of the vehicle. This will ensure that the velocity does not cross this value.
+# lower_angular_velocity_bound: Lower bound for the angular velocity of the vehicle. This will ensure that the angular velocity does not fall below this value.
+# upper_angular_velocity_bound: Upper bound for the angular velocity of the vehicle. This will ensure that the angular velocity does not cross this valaue.
+# lower_linear_acceleration_bound: Lower bound for the acceleration of the vehicle. This will ensure that the acceleration does not fall below this value.
+# upper_linear_acceleration_bound: Upper bound for the acceleration of the vehicle. This will ensure that the acceleration does not cross this value.
+# lower_angular_acceleration_bound: Lower bound for the angular acceleration of the vehicle. This will ensure that the angular acceleration does not fall below this value.
+# upper_angular_acceleration_bound: Upper bound for the angular acceleration of the vehicle. This will ensure that the angular acceleration does not cross this valaue.
+
+# WEIGHTS[SOFT COSTRAINTS]
+# trajectory_x_cost: Weight for euclidean distance between each point in the trajectory to the goal. If the weight is higher, the optimizer will try to ensure that each point to the trajectory is near the goal point. This will result in very high velocities. The trajectory will approach the goal more aggressively with lesser exploration in other lanes.
+# trajectory_y_cost: Weight for euclidean distance between each point in the trajectory to the goal. If the weight is higher, the optimizer will try to ensure that each point to the trajectory is near the goal point. This will result in very high velocities.
+# linear_acc_cost: Weight for linear acceleration. Higher the weight, closer the acceleration will be to 0. This will result in very slow increase and decrease in velocities
+# angular_acc_cost: Weight for angular acceleration. Higher the weight, smoother will be the trajectory. Very low weight will result in jerky trajectories and very high weight will result in the vehicle not being able to turn fast, as a result, it might be stuck behind obstacles.
+# obstacle_cost: Weight for obstacle distance. Higher the weight, the farther the trajectory will be from the obstacle. Very high weight will result in the trajectory being very far away from the obstacle, so if the road boundary is large and there is only 1 obstacle, the trajectory might take the vehicle on a very far and conservative path wrt the obstacle.
+# straight_lane_cost: Weight to keep the vehicle on a desired lane whcih is the same lane as the goal y coordinate. If this is very high, then the vehile will not overtake and stay in the lane itself.
+# curved_lane_cost: Not Needed since we use frenet frames now. Keep it 0
+# terminal_x_cost: Weight for the terminal cost between final x coordinate of the trajectory and the goal x coordinate. If the weight is very large, the optimizer will generate controls such that the trajectory ends exactly on the goal x position.
+# terminal_y_cost: Weight for the terminal cost between final y coordinate of the trajectory and the goal y coordinate. If the weight is very large, the optimizer will generate controls such that the trajectory ends exactly on the goal y position.
+# terminal_theta_cost: Weight for the terminal cost between final theta of the trajectory and the goal theta. If the weight is very large, the optimizer will generate controls such that the final theta is equal to the goal theta.
+
+# The tuning depends the scenario its failing. For example if its colliding, the either the obstacle weight is too low, or the angular acceleration is too low causing jerky motion due to which its collising. There might also be cases where the ego vehicle is stuck behing the vehicle. In that case, you might decerease the angular acceleration weight so that it will take sharper turns, or increase the terminal cost weight so that it might be incentivised to overtake, or you might decrease the obstacle weight.
+
+setting: ngsim_acado
+configuration:
+  ngsim_smpc:
+    num_goals: 1
+    bounds:
+      lower_linear_velocity_bound: 0.0
+      upper_linear_velocity_bound: 20.0
+      lower_angular_velocity_bound: -0.5
+      upper_angular_velocity_bound: 0.5
+      lower_linear_acceleration_bound: -10.0
+      upper_linear_acceleration_bound: 10.0
+      lower_angular_acceleration_bound: -2.0
+      upper_angular_acceleration_bound: 2.0
+    weights:
+      trajectory_x_cost: 0.0
+      trajectory_y_cost: 0.0
+      linear_acc_cost: 1.0
+      angular_acc_cost: 1.0
+      obstacle_cost: 10.0
+      straight_lane_cost: 0.0
+      curved_lane_cost: 0.0
+      terminal_x_cost: 1       # 1e9
+      terminal_y_cost: 1       # 1e9
+      terminal_theta_cost: 1  # 1e10
+
+
+  ngsim_acado:
+    num_goals: 1
+    bounds:
+      lower_linear_velocity_bound: 0.0
+      upper_linear_velocity_bound: 20.0
+      lower_angular_velocity_bound: -0.5
+      upper_angular_velocity_bound: 0.5
+      lower_linear_acceleration_bound: -10.0
+      upper_linear_acceleration_bound: 10.0
+      lower_angular_acceleration_bound: -2.0
+      upper_angular_acceleration_bound: 2.0
+    weights:
+      trajectory_x_cost: 0.0
+      trajectory_y_cost: 0.0
+      linear_acc_cost: 1.0
+      angular_acc_cost: 1.0
+      obstacle_cost: 5.0
+      straight_lane_cost: 0.0
+      curved_lane_cost: 0.0
+      terminal_x_cost: 1       # 1e9
+      terminal_y_cost: 1       # 1e9
+      terminal_theta_cost: 1  # 1e10
+
+
+  combined_smpc:
+    num_goals: 1
+    bounds:
+      lower_linear_velocity_bound: 0.0
+      upper_linear_velocity_bound: 20.0
+      lower_angular_velocity_bound: -0.5
+      upper_angular_velocity_bound: 0.5
+      lower_linear_acceleration_bound: -10.0
+      upper_linear_acceleration_bound: 10.0
+      lower_angular_acceleration_bound: -2.0
+      upper_angular_acceleration_bound: 2.0
+    weights:
+      trajectory_x_cost: 0.0
+      trajectory_y_cost: 0.0
+      linear_acc_cost: 1.0
+      angular_acc_cost: 1.0
+      obstacle_cost: 20.0
+      straight_lane_cost: 0.0
+      curved_lane_cost: 0.0
+      terminal_x_cost: 4.0       # 1e9
+      terminal_y_cost: 4.0      # 1e9
+      terminal_theta_cost: 4.0  # 1e10
+  
+  combined_acado:
+    num_goals: 1
+    bounds:
+      lower_linear_velocity_bound: 0.0
+      upper_linear_velocity_bound: 20.0
+      lower_angular_velocity_bound: -0.5
+      upper_angular_velocity_bound: 0.5
+      lower_linear_acceleration_bound: -10.0
+      upper_linear_acceleration_bound: 10.0
+      lower_angular_acceleration_bound: -2.0
+      upper_angular_acceleration_bound: 2.0
+    weights:
+      trajectory_x_cost: 0.0
+      trajectory_y_cost: 0.0
+      linear_acc_cost: 1.0
+      angular_acc_cost: 1.0
+      obstacle_cost: 20.0
+      straight_lane_cost: 0.0
+      curved_lane_cost: 0.0
+      terminal_x_cost: 4.0       # 1e9
+      terminal_y_cost: 4.0      # 1e9
+      terminal_theta_cost: 4.0  # 1e10

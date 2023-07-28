@@ -24,8 +24,8 @@ class CombinedEnv(Node):
 		self.timesteps = 30
 		self.time_secs = 3.0
 
-		self.num_goals = 6
-		# self.num_goals = 1
+		# self.num_goals = 6
+		self.num_goals = 1
 
 		self.horiz_lane_lims = np.array([[12, 12], [8, 8], [4, 4], [0, 0], [-4, -4], [-8, -8], [-12, -12]])
 		self.horiz_lane_lims_inter = np.array([[212, 212], [216, 216], [220, 220], [224, 224], [228, 228], [232, 232], [236, 236]])
@@ -67,7 +67,7 @@ class CombinedEnv(Node):
 												[202.0, 68.0, 90*2*np.pi/360, 6.9, 0.0, 7.0, 0],
 												#######################
 												[206.0, -37.0, 90*2*np.pi/360, 8.8, 0.0, 8.0, 0],
-												[206.0, 18.0, 90*2*np.pi/360, 7.9, 0.0, 8.0, 0],
+												#[206.0, 18.0, 90*2*np.pi/360, 7.9, 0.0, 8.0, 0],
 												[206.0, 53.0, 90*2*np.pi/360, 8.3, 0.0, 8.0, 0],
 												#######################
 												[210.0, -13.0, 90*2*np.pi/360, 9.3, 0.0, 9.0, 0],
@@ -80,7 +80,7 @@ class CombinedEnv(Node):
 												[222.0, 80.0, 270*2*np.pi/360, 8.9, 0.0, 9.0, 0],
 												#######################
 												[218.0, -10.0, 270*2*np.pi/360, 8.8, 0.0, 8.0, 0],
-												[218.0, 20.0, 270*2*np.pi/360, 8.9, 0.0, 8.0, 0],
+												#[218.0, 20.0, 270*2*np.pi/360, 8.9, 0.0, 8.0, 0],
 												[218.0, 60.0, 270*2*np.pi/360, 9.3, 0.0, 8.0, 0],
 												######################
 												[214.0, -40.0, 270*2*np.pi/360, 6.8, 0.0, 7.0, 0],
@@ -89,10 +89,12 @@ class CombinedEnv(Node):
 												])
 						
 		self.obstacles_right = np.array([[-20.0, 10.0, 0.0*2*np.pi/360, 7.8, 0.0, 8.0, 102.0],
+				   						#[5.0, 10.0, 0.0*2*np.pi/360, 8.3, 0.0, 8.0, 102.0],
 										[35.0, 10.0, 0.0*2*np.pi/360, 8.3, 0.0, 8.0, 102.0],
 										[80.0, 10.0, 0.0*2*np.pi/360, 7.9, 0.0, 8.0, 102.0],
 										#######################
 										[-5.0, 6.0, 0.0*2*np.pi/360, 9.8, 0.0, 10.0, 106.0],
+										#[15.0, 6.0, 0.0*2*np.pi/360, 8.3, 0.0, 8.0, 102.0],
 										[45.0, 6.0, 0.0*2*np.pi/360, 9.9, 0.0, 10.0, 106.0],
 										[80.0, 6.0, 0.0*2*np.pi/360, 10.3, 0.0, 10.0, 106.0],
 										#######################
@@ -175,8 +177,8 @@ class CombinedEnv(Node):
 		lane_info = PoseArray()
 		goals = PoseArray()
 		# lanes = [10.0, 6.0, 2.0, -2.0, -6.0, -10.0]
-		lanes = [10.0, 6.0, 2.0, 2.0, 6.0, 10.0]
-		# lanes = [6.0]
+		# lanes = [10.0, 6.0, 2.0, 2.0, 6.0, 10.0]
+		lanes = [6.0]
 		cur_lane = lanes[np.argmin(np.abs(np.array(lanes) - self.agent_pose[1]))]
 		#lanes = [-2.0]
 		# if cur_lane == 10.0:
@@ -650,10 +652,16 @@ class CombinedEnv(Node):
 
 	def plot_agents(self):
 
+		agent = [self.agent_pose[0], self.agent_pose[1], self.agent_pose[2]]
+		agent_env_x, agent_env_y, agent_env_theta = self.centerline_to_env(agent)
+
 		##################################
 
 		for i in self.obstacles_left:
 			env_x, env_y, env_theta = self.centerline_to_env(i)
+			if (agent_env_x - env_x)**2 + (agent_env_y - env_y)**2 < 4.41:
+				print("COLLISION!!!!!!!!!!")
+				quit()
 			obs = plt.Circle((env_x, env_y), 1.0, color='r')
 			plt.gca().add_patch(obs)
 
@@ -661,28 +669,35 @@ class CombinedEnv(Node):
 
 		for i in self.obstacles_right:
 			env_x, env_y, env_theta = self.centerline_to_env(i)
+			if (agent_env_x - env_x)**2 + (agent_env_y - env_y)**2 < 4.41:
+				print("COLLISION!!!!!!!!!!")
+				quit()
 			obs = plt.Circle((env_x, env_y), 1.0, color='r')
 			plt.gca().add_patch(obs)
 
 		##################################
 
 		for i in self.obstacles_intersection_south:
+			if (agent_env_x -i[0])**2 + (agent_env_y - i[1])**2 < 4.41:
+				print("COLLISION!!!!!!!!!!")
+				quit()
 			obs = plt.Circle((i[0], i[1]), 1.0, color='r')
 			plt.gca().add_patch(obs)
 
 		##################################
 
 		for i in self.obstacles_intersection_north:
+			if (agent_env_x -i[0])**2 + (agent_env_y - i[1])**2 < 4.41:
+				print("COLLISION!!!!!!!!!!")
+				quit()
 			obs = plt.Circle((i[0], i[1]), 1.0, color='r')
 			plt.gca().add_patch(obs)
 		
 		##################################
 
-		agent = [self.agent_pose[0], self.agent_pose[1], self.agent_pose[2]]
-		env_x, env_y, env_theta = self.centerline_to_env(agent)
-		self.agent_pose_frenet = [env_x, env_y, env_theta]
-		agent = plt.Circle((env_x, env_y), 1.0, color='g')
-		plt.text(env_x, env_y+30, 'Vel = %s'%(round(self.agent_vel[0],2)), fontsize=10)
+		self.agent_pose_frenet = [agent_env_x, agent_env_y, agent_env_theta]
+		agent = plt.Circle((agent_env_x, agent_env_y), 1.0, color='g')
+		plt.text(agent_env_x, agent_env_y+30, 'Vel = %s'%(round(self.agent_vel[0],2)), fontsize=10)
 		plt.gca().add_patch(agent)
 	
 	def plot(self, twist, path, kkt):
@@ -781,16 +796,16 @@ class CombinedEnv(Node):
 		print([self.agent_pose_frenet[0], self.agent_pose_frenet[1], self.agent_pose_frenet[2], fv, fw])
 		if self.agent_pose[0]<160:
 			self.ego_poses_straight.append([self.agent_pose_frenet[0], self.agent_pose_frenet[1], self.agent_pose_frenet[2], fv, fw, self.nearest_obs_dist])
-			np.savez("../../results/multi_goal_straight/combined_env_straight.npz", np.array(self.ego_poses_straight))
-			plt.savefig("../../results/multi_goal_straight/images/"+str(self.loop)+".png")
+			# np.savez("../../results/multi_goal_straight/combined_env_straight.npz", np.array(self.ego_poses_straight))
+			# plt.savefig("../../results/multi_goal_straight/images/"+str(self.loop)+".png")
 		elif self.agent_pose[0]>=160 and self.agent_pose[0]<244:
 			self.ego_poses_intersection.append([self.agent_pose_frenet[0], self.agent_pose_frenet[1], self.agent_pose_frenet[2], fv, fw, self.nearest_obs_dist])
-			np.savez("../../results/multi_goal_intersection/combined_env_intersection.npz", np.array(self.ego_poses_intersection))
-			plt.savefig("../../results/multi_goal_intersection/images/"+str(self.loop)+".png")
+			# np.savez("../../results/multi_goal_intersection/combined_env_intersection.npz", np.array(self.ego_poses_intersection))
+			# plt.savefig("../../results/multi_goal_intersection/images/"+str(self.loop)+".png")
 		elif self.agent_pose[0]>=244 and self.agent_pose[0]<244 + self.radius*np.pi:
 			self.ego_poses_curved.append([self.agent_pose_frenet[0], self.agent_pose_frenet[1], self.agent_pose_frenet[2], fv, fw, self.nearest_obs_dist])
-			np.savez("../../results/multi_goal_curved/combined_env_curved.npz", np.array(self.ego_poses_curved))
-			plt.savefig("../../results/multi_goal_curved/images/"+str(self.loop)+".png")
+			# np.savez("../../results/multi_goal_curved/combined_env_curved.npz", np.array(self.ego_poses_curved))
+			# plt.savefig("../../results/multi_goal_curved/images/"+str(self.loop)+".png")
 		
 		plt.pause(0.01)
 
